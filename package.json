@@ -1,0 +1,18 @@
+{
+  "name": "easy-attendance-personal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "db:setup": "node scripts/setup-database.mjs"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.0",
+    "@neondatabase/serverless": "^1.0.2"
+  }
+}

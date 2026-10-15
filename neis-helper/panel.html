@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>나이스 입력 도우미</title><link rel="stylesheet" href="panel.css"></head><body>
+<header><span class="eyebrow">쉬운출결</span><h1>나이스 입력 도우미</h1><p>나이스 <strong>일일출결관리(담임용)</strong>를 열어 두세요.</p></header>
+<p id="status" class="status" role="status" aria-live="polite"></p>
+<section id="queue" class="card" hidden><div class="heading-row"><h2>입력할 학생</h2><span id="count"></span></div>
+<div class="work-modes" role="group" aria-label="작업 선택"><button type="button" data-work-mode="attendance" aria-pressed="true">일일출결 입력</button><button type="button" data-work-mode="report" aria-pressed="false">학부모 신고서 접수</button></div><p class="completion-help" id="completion-help">체크하면 입력 완료 · 다시 누르면 해제됩니다. 나이스 저장 내용은 바뀌지 않습니다.</p><div id="student-list" class="student-list" aria-label="날짜별 학생 입력 상태"></div>
+<button id="retry-pending" class="secondary" type="button" hidden>미입력 일괄 재입력</button>
+<div style="margin:14px 0 10px;padding:12px;border:2px solid #d8b96a;border-radius:10px;background:#fff8e6;color:#51421e;font-size:13px;line-height:1.65" role="note"><div id="attendance-start-guide"><strong>자동입력 전, 여기까지 열어 주세요</strong><br><strong>나이스 → 일일출결관리(담임용) → 해당 반의 출결표</strong><br><small>날짜·학생 선택은 도우미가 처리합니다.</small></div><div id="report-start-guide" hidden><strong>나이스에서 해당 학생의 학부모 신고서 접수 화면을 열어 주세요.</strong></div></div><button id="grid-fill" class="primary" type="button" disabled>자동입력 · 저장 · 다음 학생</button>
+<p id="input-error" class="status error" role="status"></p><p id="grid-status" class="status" role="status" aria-live="polite"></p>
+</section>
+<section id="skip-summary" class="card" hidden><h3>미입력 목록</h3><pre id="skip-list"></pre></section>
+<script type="module" src="panel.js"></script></body></html>
+

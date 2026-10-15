@@ -1,0 +1,43 @@
+#pass-print-area { display: none; }
+.pass-document { box-sizing: border-box; width: 100%; max-width: 180mm; margin: 0 auto; padding: 7mm 8mm 6mm; color: #111; background: #fff; border: 1px solid #444; font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-size: 14px; line-height: 1.5; text-align: left; }
+.pass-document *, .pass-document *::before, .pass-document *::after { box-sizing: border-box; }
+.pass-paper-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.pass-school { display: flex; align-items: center; gap: 10px; flex-shrink: 0; white-space: nowrap; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+.pass-emblem { display: block; width: 12mm; height: 12mm; object-fit: contain; flex-shrink: 0; }
+.pass-serial { color: #555; font-size: 10px; white-space: nowrap; }
+.pass-document .pass-paper-title { margin: 3mm 0 5mm; color: #111; font-size: 30px; font-weight: 800; letter-spacing: .35em; line-height: 1.3; text-align: center; text-indent: .35em; }
+.pass-student-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; padding-bottom: 4mm; border-bottom: 2px solid #222; }
+.pass-student-line > strong { font-size: 20px; }
+.pass-paper-fields { margin: 0; padding: 0; }
+.pass-paper-fields > div { display: grid; grid-template-columns: 23mm minmax(0,1fr); border-bottom: 1px solid #bbb; }
+.pass-paper-fields dt, .pass-paper-fields dd { margin: 0; padding: 2.6mm 0; }
+.pass-paper-fields dt { color: #444; font-size: 13px; font-weight: 600; }
+.pass-paper-fields dd { overflow-wrap: anywhere; white-space: pre-wrap; }
+.pass-paper-fields .pass-reason-row dd { min-height: 12mm; }
+.pass-time-divider { margin: 0 10px; }
+.pass-return-label { margin-left: 8px; color: #555; font-size: 12px; }
+.pass-document .pass-permission { margin: 5mm 0 4mm; color: #222; font-size: 14px; text-align: center; }
+.pass-paper-footer { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 4mm 8mm; color: #111; }
+.pass-teacher strong { margin-left: 10px; }
+.pass-signature { display: inline-flex; align-items: end; gap: 3mm; color: #555; font-size: 12px; }
+.pass-signature span { width: 23mm; height: 7mm; border-bottom: 1px solid #777; }
+@media screen and (max-width: 520px) {
+  .pass-document { padding: 18px; font-size: 13px; }
+  .pass-paper-header { align-items: flex-start; flex-wrap: wrap; gap: 6px; }
+  .pass-school { font-size: 14px; }
+  .pass-emblem { width: 32px; height: 32px; }
+  .pass-serial { margin-left: auto; font-size: 9px; }
+  .pass-document .pass-paper-title { font-size: 25px; }
+  .pass-paper-fields > div { grid-template-columns: 70px minmax(0,1fr); }
+  .pass-student-line { gap: 4px 10px; }
+  .pass-student-line > strong { font-size: 18px; }
+}
+@media print {
+  @page { size: A4 portrait; margin: 14mm 15mm; }
+  html:has(body.printing-pass), body.printing-pass { width: auto !important; height: auto !important; min-width: 0 !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; color-scheme: light !important; background: #fff !important; }
+  body.printing-pass > :not(#pass-print-area) { display: none !important; }
+  body.printing-pass dialog::backdrop { display: none !important; background: transparent !important; }
+  body.printing-pass #pass-print-area { display: block !important; position: static !important; width: 180mm; max-width: 100%; margin: 0 auto; padding: 0; background: #fff; }
+  #pass-print-area .pass-document { break-inside: avoid; page-break-inside: avoid; min-height: 110mm; width: 180mm; max-width: 100%; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #pass-print-area .pass-paper-header, #pass-print-area .pass-student-line, #pass-print-area .pass-paper-fields > div, #pass-print-area .pass-paper-footer { break-inside: avoid; }
+}

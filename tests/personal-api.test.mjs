@@ -1,0 +1,35 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFile} from 'node:fs/promises';
+import {handleApi} from '../lib/server-api.js';
+import {emptyRecord} from '../public/src/notebook-model.js';
+function database(){const sql=new DatabaseSync(':memory:');for(const statement of ['CREATE TABLE rooms(id TEXT PRIMARY KEY,payload TEXT,revision INTEGER,recovery TEXT UNIQUE,created INTEGER)','CREATE TABLE devices(hash TEXT PRIMARY KEY,room TEXT,label TEXT,created INTEGER,expires INTEGER)','CREATE TABLE pairs(hash TEXT PRIMARY KEY,room TEXT,expires INTEGER)','CREATE TABLE limits(key TEXT PRIMARY KEY,count INTEGER,expires INTEGER)'])sql.exec(statement);const env={DATA_KEY:'ab'.repeat(32),DB:{prepare(q){let args=[];return{bind(...a){args=a;return this;},async first(){return sql.prepare(q).get(...args)||null;},async run(){return{meta:{changes:Number(sql.prepare(q).run(...args).changes)}};},async all(){return{results:sql.prepare(q).all(...args)}}};},async batch(qs){return Promise.all(qs.map(q=>q.run()));}}};return {env,sql};}
+const profile={schoolName:'테스트고',displayName:'테스트담임',grade:3,classNumber:21};
+async function request(env,path,body,cookie='',method=body?'POST':'GET'){const r=await handleApi(new Request('https://test.local/api/'+path,{method,headers:{Origin:'https://test.local','Content-Type':'application/json',Cookie:cookie,'cf-connecting-ip':'127.0.0.1'},...(body?{body:JSON.stringify(body)}:{})}),env);let data;try{data=await r.json();}catch{}return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
+test('two devices share one room; same school/class in another room stays separate; revoke and recovery',async()=>{const {env,sql}=database();
+ const a=await request(env,'personal/create',profile);assert.equal(a.status,201);assert.ok(a.data.recoveryCode);assert.equal(a.data.students.length,0);
+ const b=await request(env,'personal/create',profile);assert.equal(b.status,201);
+ const pair=await request(env,'personal/pair',{},a.cookie);assert.equal(pair.status,200);
+ const phone=await request(env,'personal/connect',{code:pair.data.code});assert.equal(phone.status,200);
+ assert.equal((await request(env,'personal/connect',{code:pair.data.code})).status,400);
+ const rec={...emptyRecord(),id:crypto.randomUUID(),studentId:'32101',studentName:'학생가',classNumber:21,number:1,startDate:'2026-10-15',endDate:'2026-10-15',category:'attendance',attendanceType:'결석',reasonType:'질병',reason:'병원',reviewStatus:'reviewed'};
+ const saved=await request(env,'notebook',{record:rec,before:null},phone.cookie,'PATCH');assert.equal(saved.status,200,JSON.stringify(saved.data));
+ const pc=await request(env,'notebook',null,a.cookie);assert.equal(pc.data.records[0].studentName,'학생가');assert.equal((await request(env,'notebook',null,b.cookie)).data.records.length,0);
+ assert.equal((await request(env,'notebook',{record:{...rec,studentId:'30801'},before:null},a.cookie,'PATCH')).status,400);
+ const current=pc.data.records[0];const edited=await request(env,'notebook',{record:{...current,reason:'변경'},before:current},a.cookie,'PATCH');assert.equal(edited.status,200);
+ assert.equal((await request(env,'notebook',{record:{...current,reason:'오래된 수정'},before:current},phone.cookie,'PATCH')).status,409);
+ assert.equal((await request(env,'notebook',null,'')).data.authenticated,false);
+ const row=sql.prepare('SELECT payload FROM rooms LIMIT 1').get();assert.ok(!row.payload.includes('학생가'));assert.ok(!row.payload.includes('테스트고'));
+ const dev=await request(env,'personal/devices',null,a.cookie);const other=dev.data.devices.find(x=>!x.current);assert.ok(other);assert.equal((await request(env,'personal/devices',{id:other.hash},b.cookie,'DELETE')).status,200);assert.equal((await request(env,'notebook',null,phone.cookie)).data.authenticated,true);
+ assert.equal((await request(env,'personal/devices',{id:other.hash},a.cookie,'DELETE')).status,200);assert.equal((await request(env,'notebook',null,phone.cookie)).data.authenticated,false);
+ const recovered=await request(env,'personal/recover',{code:a.data.recoveryCode});assert.equal(recovered.status,200);assert.equal(recovered.data.records[0].reason,'변경');
+ const renewed=await request(env,'personal/recovery',{},a.cookie);assert.ok(renewed.data.recoveryCode);assert.equal((await request(env,'personal/recover',{code:a.data.recoveryCode})).status,400);
+});
+test('pair expiry, CSRF, concurrent independent records, own roster, settings conflict',async()=>{const {env,sql}=database();const a=await request(env,'personal/create',profile);const pair=await request(env,'personal/pair',{},a.cookie);sql.exec('UPDATE pairs SET expires = 1');assert.equal((await request(env,'personal/connect',{code:pair.data.code})).status,400);
+ const csrf=await handleApi(new Request('https://test.local/api/personal/create',{method:'POST',headers:{Origin:'https://evil.local','Content-Type':'application/json'},body:JSON.stringify(profile)}),env);assert.equal(csrf.status,403);
+ const roster=await request(env,'notebook',{action:'save-roster',students:[{studentId:'32101',studentName:'학생가'}],beforeStudents:[]},a.cookie);assert.equal(roster.status,200);assert.equal((await request(env,'notebook',{action:'save-roster',students:[],beforeStudents:[]},a.cookie)).status,409);
+ const next={...profile,schoolName:'새학교'};assert.equal((await request(env,'personal/profile',{profile:next,before:profile},a.cookie,'PATCH')).status,200);
+ assert.equal((await request(env,'personal/profile',{profile:{...next,classNumber:22},before:next},a.cookie,'PATCH')).status,400);
+ const rec=n=>({...emptyRecord(),id:crypto.randomUUID(),studentName:'학생'+n});const results=await Promise.all([1,2].map(n=>request(env,'notebook',{record:rec(n),before:null},a.cookie,'PATCH')));assert.ok(results.every(r=>r.status===200));assert.equal((await request(env,'notebook',null,a.cookie)).data.records.length,2);
+});

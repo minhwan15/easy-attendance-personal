@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "쉬운출결 개인용 → 나이스 도우미",
+  "version": "1.0.0",
+  "description": "학생·날짜를 대조해 나이스 출결 창과 기준 교시를 자동입력합니다. 최종 저장은 직접 확인합니다.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://*.neis.go.kr/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://easy-attendance-personal.minhwan15370665.chatgpt.site/*"
+      ],
+      "js": [
+        "notebook-bridge.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "담임 기록 입력 도우미 열기"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
+  }
+}
