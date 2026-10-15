@@ -1,3 +1,4 @@
+import { schoolWeek, shiftWeek } from './notebook-experience-week.js';
 import { bindStudentMatcher } from './student-matcher.js';
 import { academicYear } from './notebook-experience-usage.js';
 import { normalizeExperienceSettings } from './notebook-experience-settings.js';
@@ -18,7 +19,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
   const roster = [...students].sort((a,b) => a.studentId.localeCompare(b.studentId));
   const drafts = new Map(), approvalDrafts = new Map(), newIds = new Map();
   let month = today.slice(0,7), search = '', dates = [], visibleStudents = [], selected = new Set(), anchor = null, busy = false, destroyed = false, lastError = '', dragStart = null, dragged = false;
-  let baselineInvalid = new Map(), activeMark = null;
+  let baselineInvalid = new Map(), activeMark = null, weekDate=today;
   const controller = new AbortController(), signal = controller.signal;
   const year = () => academicYear(`${month}-01`);
   const isSettingsDirty = () => JSON.stringify(savedSettings) !== JSON.stringify(draftSettings);
@@ -55,9 +56,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
       td.classList.toggle('eg-application',mark==='신'); td.classList.toggle('eg-report',mark==='보');
       td.classList.toggle('eg-dirty',drafts.has(key)); td.classList.toggle('eg-selected',selected.has(key));
       td.classList.toggle('eg-conflict',info.conflict||info.uncertain);
-      const approved=Boolean(mark)&&info.records.length>0&&info.records.every(record=>record.approvalStatus==='approved');
-      td.classList.toggle('eg-approved',approved);
-      input.title=`${input.getAttribute('aria-label')}${approved?' · 초록 점: 승인 완료':''}`;
+      input.title=input.getAttribute('aria-label');
       input.setAttribute('aria-selected',String(selected.has(key)));
       input.disabled=busy||draftSettings.blockedDates.includes(date);
       input.readOnly=activeMark!==null||info.conflict||info.uncertain;
@@ -79,9 +78,11 @@ export function createExperienceGrid({root, records = [], students = [], setting
     const pending=drafts.size+approvalDrafts.size;
     q('[data-grid-save-state]').textContent=busy?'저장 중…':hasPendingChanges()?`${pending?`${pending}칸 · `:''}저장 전`:'저장됨';
     q('[data-grid-save]').disabled=busy||!hasPendingChanges();
-    q('[data-grid-approve]').disabled=busy||!count;
+    
     q('[data-grid-neis]').disabled=busy;
     q('[data-grid-detail]').disabled=busy||!count;
+    const week=schoolWeek(weekDate);if(q('[data-grid-week-label]'))q('[data-grid-week-label]').textContent=week.start+' ~ '+week.end;
+    qa('[data-grid-week]').forEach(b=>b.setAttribute('aria-pressed',String(schoolWeek(b.dataset.gridWeek==='this'?today:shiftWeek(today,-1)).start===week.start)));
     patchCells();
   }
   function tableHtml() {
@@ -226,6 +227,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
     if(!await savePending())return;
     try{
       const chosen=selectedRecords();if(!chosen.records.length)throw new Error('신청서나 보고서를 입력한 날짜 칸을 선택해 주세요.');
+      if(!confirm('선택한 체험학습이 학교에서 허가된 건인가요?\n이 버튼은 앱에 허가 확인을 표시합니다. 학교의 결재를 대신하지 않습니다.'))return;
       for(const [id,chosenDates]of Object.entries(chosen.datesByRecord)){const record=chosen.records.find(record=>record.id===id);for(const date of chosenDates)approvalDrafts.set(keyOf(record.studentId,date),true);}
       await savePending();
     }catch(error){setError(error.message);}
@@ -240,7 +242,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
       setError();renderTable({keepScroll:true});
     }catch(error){setError(error.message);}
   }
-  root.innerHTML=`<section class="experience-grid" aria-label="체험학습 간편 입력"><header class="eg-heading"><div><h3>체험학습 한눈에 입력</h3><p>날짜 칸에 <span class="eg-legend eg-application">신</span> 신청서 · <span class="eg-legend eg-report">보</span> 보고서</p></div><span class="eg-year" data-grid-year></span></header><div class="eg-navigation"><div class="eg-month-picker"><button type="button" class="btn small" data-grid-prev aria-label="이전 달">‹</button><label><span class="hidden">시작 월</span><input type="month" data-grid-month value="${month}" aria-label="표 시작 월"></label><button type="button" class="btn small" data-grid-next aria-label="다음 달">›</button></div><input type="search" class="eg-search" data-grid-search placeholder="이름·학번 검색" aria-label="학생 이름·학번 검색"></div>${roster.length?`<div class="eg-toolbar"><div class="eg-mark-tools"><button type="button" class="btn small eg-mark-application" data-grid-mark="신">신청서</button><button type="button" class="btn small eg-mark-report" data-grid-mark="보">보고서</button><button type="button" class="btn small" data-grid-mark="">지우기</button><span class="eg-selection" data-grid-selection></span></div><div class="eg-action-tools"><button type="button" class="btn small" data-grid-detail>상세</button><button type="button" class="btn small" data-grid-approve>선택 승인</button><button type="button" class="btn small" data-grid-neis>나이스 입력</button><button type="button" class="btn small primary" data-grid-save>변경 저장</button></div></div><div class="eg-scroll" data-grid-scroll tabindex="0" aria-label="좌우로 넘기는 체험학습 날짜 표"></div><footer class="eg-footer"><p>기존 사용일: 이 표에 입력하지 않은 사용일수 · 날짜 위 <strong>X</strong>: 시험·행사일 제외 · 초록 점: 승인 완료</p><span data-grid-save-state role="status"></span></footer><p class="eg-hint">신청서·보고서·지우기 선택 후 날짜를 누르거나 드래그하세요 · 선택한 버튼을 다시 누르면 선택 해제 · 여러 학생·날짜는 드래그 또는 Shift+클릭 · 나이스 입력은 전체 미입력분만 전송 · 엑셀 붙여넣기 가능 · 0 / O / ㅇ 입력도 ‘보’로 표시</p>${roster.some(student=>Object.values(student.experienceBaseline||{}).some(Number))?'<p class="eg-legacy-note">이전의 ‘횟수’ 기록은 남겨 두었습니다. 기존 사용일수는 일수로 입력해 주세요.</p>':''}`:`<div class="eg-empty"><strong>명렬표를 등록하면 날짜 표가 열립니다.</strong><p>학생별로 신청서와 보고서를 한 번에 관리하세요.</p><button type="button" class="btn primary" data-grid-roster>명렬표 등록</button></div>`}<p class="eg-error" data-grid-error role="alert"></p><div class="eg-recovery" data-grid-recovery hidden>${typeof loadLatest==='function'?'<button type="button" class="btn small" data-grid-reload>최신 내용 불러오기</button>':''}<button type="button" class="btn small" data-grid-discard>내 입력 취소</button></div></section>`;
+  root.innerHTML=`<section class="experience-grid" aria-label="체험학습 간편 입력"><header class="eg-heading"><div><h3>체험학습 한눈에 입력</h3><p>날짜 칸에 <span class="eg-legend eg-application">신</span> 신청서 · <span class="eg-legend eg-report">보</span> 보고서</p></div><span class="eg-year" data-grid-year></span></header><div class="eg-navigation"><div class="eg-month-picker"><button type="button" class="btn small" data-grid-prev aria-label="이전 달">‹</button><label><span class="hidden">시작 월</span><input type="month" data-grid-month value="${month}" aria-label="표 시작 월"></label><button type="button" class="btn small" data-grid-next aria-label="다음 달">›</button></div><input type="search" class="eg-search" data-grid-search placeholder="이름·학번 검색" aria-label="학생 이름·학번 검색"></div>${roster.length?`<div class="eg-toolbar"><div class="eg-mark-tools"><button type="button" class="btn small eg-mark-application" data-grid-mark="신">신청서</button><button type="button" class="btn small eg-mark-report" data-grid-mark="보">보고서</button><button type="button" class="btn small" data-grid-mark="">지우기</button><span class="eg-selection" data-grid-selection></span></div><div class="eg-action-tools"><button type="button" class="btn small" data-grid-detail>상세</button><button type="button" class="btn small primary" data-grid-save>변경 저장</button></div></div><div class="eg-scroll" data-grid-scroll tabindex="0" aria-label="좌우로 넘기는 체험학습 날짜 표"></div><section class="eg-week-transfer pc-tools"><div class="eg-week-tools" ><strong>나이스로 보낼 기간</strong><button type="button" class="btn small" data-grid-week="this">이번 주</button><button type="button" class="btn small" data-grid-week="last">지난주</button><label>다른 주 선택 <input type="date" data-grid-week-date value="${weekDate}"></label><span data-grid-week-label></span></div><button type="button" class="btn small" data-grid-neis>이 주의 미입력 기록 확인</button></section><footer class="eg-footer"><p>기존 사용일: 이 표에 입력하지 않은 사용일수 · 날짜 위 <strong>X</strong>: 시험·행사일 제외 · 초록 점: 승인 완료</p><span data-grid-save-state role="status"></span></footer><p class="eg-hint">신청서·보고서·지우기 선택 후 날짜를 누르거나 드래그하세요 · 선택한 버튼을 다시 누르면 선택 해제 · 여러 학생·날짜는 드래그 또는 Shift+클릭 · 나이스 입력은 선택한 주의 미입력분만 전송 · 엑셀 붙여넣기 가능 · 0 / O / ㅇ 입력도 ‘보’로 표시</p>${roster.some(student=>Object.values(student.experienceBaseline||{}).some(Number))?'<p class="eg-legacy-note">이전의 ‘횟수’ 기록은 남겨 두었습니다. 기존 사용일수는 일수로 입력해 주세요.</p>':''}`:`<div class="eg-empty"><strong>명렬표를 등록하면 날짜 표가 열립니다.</strong><p>학생별로 신청서와 보고서를 한 번에 관리하세요.</p><button type="button" class="btn primary" data-grid-roster>명렬표 등록</button></div>`}<p class="eg-error" data-grid-error role="alert"></p><div class="eg-recovery" data-grid-recovery hidden>${typeof loadLatest==='function'?'<button type="button" class="btn small" data-grid-reload>최신 내용 불러오기</button>':''}<button type="button" class="btn small" data-grid-discard>내 입력 취소</button></div></section>`;
   bindStudentMatcher({inputs:[q('[data-grid-search]')],students:roster,autoSelectId:false,onSelect:student=>{q('[data-grid-search]').value=student.studentId;search=student.studentId;selected.clear();anchor=null;renderTable();}});
   function changeMonth(next){if(busy)return;try{gridDates(next,2);month=next;selected.clear();anchor=null;renderTable();setError();}catch(error){q('[data-grid-month]').value=month;setError(error.message);}}
   root.addEventListener('click',async event=>{
@@ -248,7 +250,8 @@ export function createExperienceGrid({root, records = [], students = [], setting
     const cell=event.target.closest('[data-grid-cell]');
     if(cell&&activeMark!==null&&!cell.disabled&&!dragged){try{applyValues([...selected].map(key=>({...splitKey(key),mark:activeMark})));}catch(error){setError(error.message);}return;}
     const button=event.target.closest('button');if(!button)return;
-    if(button.hasAttribute('data-grid-prev'))changeMonth(shiftMonth(month,-1));
+    if(button.hasAttribute('data-grid-week')){weekDate=button.dataset.gridWeek==='last'?shiftWeek(today,-1):today;q('[data-grid-week-date]').value=weekDate;refreshSummary();}
+    else if(button.hasAttribute('data-grid-prev'))changeMonth(shiftMonth(month,-1));
     else if(button.hasAttribute('data-grid-next'))changeMonth(shiftMonth(month,1));
     else if(button.hasAttribute('data-grid-block'))toggleBlocked(button.dataset.gridBlock);
     else if(button.hasAttribute('data-grid-mark')){activeMark=activeMark===button.dataset.gridMark?null:button.dataset.gridMark;selected.clear();anchor=null;setError();refreshSummary();}
@@ -264,10 +267,10 @@ export function createExperienceGrid({root, records = [], students = [], setting
       if(chosen.length===1)onDetails(copy(chosen[0]));else setError(chosen.length?'기록이 여러 개 선택되었습니다. 겹친 기록은 신청서·보고서 목록에서 수정해 주세요.':'입력된 날짜 칸을 선택해 주세요.');
     }else if(button.hasAttribute('data-grid-neis')){
       if(!await savePending())return;
-      try{await onNeis({records:copy(savedRecords.filter(r=>r.category==='experience')),allPending:true});}catch(error){setError(error.message);}
+      try{await onNeis({records:copy(savedRecords.filter(r=>r.category==='experience')),weekDate});}catch(error){setError(error.message);}
     }
   },{signal});
-  root.addEventListener('change',event=>{if(event.target.matches('[data-grid-month]'))changeMonth(event.target.value);},{signal});
+  root.addEventListener('change',event=>{if(event.target.matches('[data-grid-week-date]')){try{schoolWeek(event.target.value);weekDate=event.target.value;refreshSummary();}catch(error){setError(error.message);}return;}if(event.target.matches('[data-grid-month]'))changeMonth(event.target.value);},{signal});
   root.addEventListener('input',event=>{
     const input=event.target;if(busy)return;
     if(input.hasAttribute('data-grid-search')){search=input.value;selected.clear();anchor=null;renderTable();}

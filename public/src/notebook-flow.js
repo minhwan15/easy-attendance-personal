@@ -16,7 +16,6 @@ export function nextAttendanceAction(record){
  if(!record.startDate)return {label:'출결일 입력',field:'startDate'};
  if(record.category==='experience'){
   if(record.applicationStatus!=='received')return {label:'신청서 접수 확인',field:'applicationStatus'};
-  if(record.approvalStatus!=='approved')return {label:'체험학습 승인 확인',field:'approvalStatus'};
  }
  if(record.attendanceType!=='결석'&&!record.periods)return {label:'빠진 교시 입력',field:'periods'};
  if(!record.reason)return {label:'출결 사유 입력',field:'reason'};

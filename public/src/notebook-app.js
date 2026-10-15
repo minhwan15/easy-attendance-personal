@@ -1,4 +1,5 @@
 import {renderPersonalAuth,openPersonalSettings} from './personal-ui.js';
+import { openExperienceWeek } from './notebook-experience-week-ui.js';
 import { todayAttendance, attendanceStep, nextAttendanceAction } from './notebook-flow.js';
 import { dailyExamRecords, mergeDailyRecords, isExamRecord } from './notebook-daily-records.js';
 import { bindStudentMatcher } from './student-matcher.js';
@@ -309,7 +310,7 @@ function bindWorkspace() {
     saveSettings:async(settings,beforeSettings)=>{if(demo)state.experienceSettings=normalizeExperienceSettings(settings);else accept(await api({action:'save-experience-settings',settings,beforeSettings},'POST'));return notebookSnapshot();},
     loadLatest:async()=>{if(!demo)accept(await api());return notebookSnapshot();},
     onSaved:()=>{state.error='';refreshTabCounts();},onDetails:record=>afterGridSave(()=>openEditor(state.records.find(item=>item.id===record.id)||record)),
-    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());openExperienceNeis({...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
+    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());if(selection.weekDate){openExperienceWeek({date:selection.weekDate,today:today(),loadLatest:async()=>{await syncNeisCompletions();if(!demo)accept(await api());return notebookSnapshot();},saveRecord:persistRecord,onDetails:openEditor,onSend:chosen=>openExperienceNeis({...chosen,blockedDates:state.experienceSettings.blockedDates})});}else openExperienceNeis({...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
     onRoster:()=>afterGridSave(openRoster),notify:toast});
   document.querySelectorAll('[data-experience-view]').forEach(button=>button.onclick=()=>afterGridSave(()=>{state.experienceView=button.dataset.experienceView;render();}));
   document.querySelectorAll('#workspace-content [data-new]').forEach(b=>b.onclick=()=>afterGridSave(()=>startNew(b.dataset.new)));
@@ -478,7 +479,7 @@ function bindPeriodSelector() {
   };
 }
 function experienceFields() {
-  return `<div id="experience-editor-usage" class="experience-editor-usage">${experienceDaysNote(draft)}</div><h4 class="subheading">체험학습 서류 진행 상황</h4><div class="form-grid">${selectField('신청서 제출 여부','applicationStatus',[['missing','아직 받지 않음'],['received','신청서 받음']],{blank:null})}${selectField('신청 승인 여부','approvalStatus',[['pending','승인 여부 확인 중'],['approved','승인 확인'],['rejected','미승인'],['cancelled','취소']],{blank:null})}${selectField('보고서 제출 여부','reportStatus',[['missing','아직 받지 않음'],['received','보고서 받음'],['reviewed','보고서 내용까지 확인']],{blank:null})}${field('보고서 제출 기한','reportDueDate',{type:'date'})}</div>${field('체험학습 장소','location',{placeholder:'신청서에 적힌 장소',maxlength:300})}`;
+  return `<div id="experience-editor-usage" class="experience-editor-usage">${experienceDaysNote(draft)}</div><h4 class="subheading">체험학습 서류 진행 상황</h4><div class="form-grid">${selectField('신청서 제출 여부','applicationStatus',[['missing','아직 받지 않음'],['received','신청서 받음']],{blank:null})}${selectField('신청 상태','approvalStatus',[['pending','신청 유지'],['approved','신청 유지 · 기존 기록'],['rejected','반려'],['cancelled','취소']],{blank:null})}${selectField('보고서 제출 여부','reportStatus',[['missing','아직 받지 않음'],['received','보고서 받음'],['reviewed','보고서 내용까지 확인']],{blank:null})}${field('보고서 제출 기한','reportDueDate',{type:'date'})}</div>${field('체험학습 장소','location',{placeholder:'신청서에 적힌 장소',maxlength:300})}`;
 }
 function dateRange(start,end) {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end)||start>end)return [];

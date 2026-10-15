@@ -14,7 +14,7 @@ test('sending never implies saved completion',()=>{
 });
 test('correction buttons point to relevant fields',()=>{
  assert.equal(nextAttendanceAction({...base,attendanceType:'지각',note:'[아침 출결 메모]',periods:''}).field,'arrival');
- assert.equal(nextAttendanceAction({...base,category:'experience',applicationStatus:'received',approvalStatus:'pending'}).field,'approvalStatus');
+ assert.equal(nextAttendanceAction({...base,category:'experience',applicationStatus:'received',approvalStatus:'pending'}).field,'reason');
  assert.equal(nextAttendanceAction({...base,id:'exam-30801-2026-10-15'}).field,'exam');
  assert.equal(nextAttendanceAction({...base,reason:''}).field,'reason');
 });

@@ -373,7 +373,7 @@ export function parseSourceText(value, {referenceDate = todaySeoul(), students =
   else if (dateValues.length>1) warnings.push('여러 날짜가 있습니다. 실제 출결일 또는 체험 기간을 직접 지정해 주세요.');
   else warnings.push('실제 출결일 또는 체험 기간을 확인하지 못했습니다. 날짜를 입력해 주세요.');
   if (/기간\s*중|중\s*(?:1|하루|한)\s*일?|미정|추후\s*(?:안내|확정)/.test(text)) warnings.push('정확한 날짜가 확정되지 않은 내용입니다. 날짜를 확인하기 전에는 나이스 입력 대상으로 선택하지 마세요.');
-  if (isExperience) warnings.push('문서가 있다는 것만으로 승인·제출 확인을 완료하지 않습니다. 신청서, 승인, 보고서 상태를 직접 확인해 주세요.');
+  if (isExperience) warnings.push('문서가 있다는 것만으로 승인·제출 확인을 완료하지 않습니다. 신청서와 보고서 제출 상태를 직접 확인해 주세요.');
   const periodDate=fields.startDate||referenceDate, datedPeriods=attendancePeriods(text,periodDate);
   if(datedPeriods.periods) fields.periods=withAttendanceMeetings(datedPeriods.periods,fields.attendanceType,{date:periodDate});
   else if(datedPeriods.unavailable) warnings.push('해당 날짜의 수업 시간표가 없습니다. 실제 빠진 교시를 직접 선택해 주세요.');
@@ -513,7 +513,7 @@ export function readiness(input) {
   if (record.reviewStatus!=='reviewed') errors.push('입력 내용을 확인한 뒤 저장해 주세요.');
   if (record.category==='experience') {
     if (record.applicationStatus!=='received') errors.push('체험학습 신청서 접수를 확인해 주세요.');
-    if (record.approvalStatus!=='approved') errors.push('체험학습 승인 여부를 확인해 주세요.');
+    if (['cancelled','rejected'].includes(record.approvalStatus)) errors.push('취소·반려된 체험학습은 전송하지 않습니다.');
   }
   return {ready:errors.length===0,errors};
 }
@@ -522,18 +522,17 @@ export function readiness(input) {
 export function experienceStatus(input,today=todaySeoul()) {
   const record=normalizeRecord(input), validToday=isDate(today);
   const overdue=record.reportStatus==='missing' && !!record.reportDueDate && validToday && record.reportDueDate<today;
-  const needsReport=record.category==='experience' && record.approvalStatus==='approved' && record.reportStatus==='missing' && !!record.endDate && validToday && record.endDate<today;
+  const needsReport=record.category==='experience' && !['cancelled','rejected'].includes(record.approvalStatus) && record.reportStatus==='missing' && !!record.endDate && validToday && record.endDate<today;
   if (record.category!=='experience') return {label:'해당 없음',tone:'neutral',overdue:false,needsReport:false};
   if (record.approvalStatus==='cancelled') return {label:'신청 취소',tone:'neutral',overdue:false,needsReport:false};
   if (record.approvalStatus==='rejected') return {label:'신청 반려',tone:'danger',overdue:false,needsReport:false};
   if (record.applicationStatus==='missing') return {label:'신청서 미제출',tone:'warning',overdue,needsReport};
-  if (record.approvalStatus!=='approved') return {label:'승인 확인 대기',tone:'warning',overdue,needsReport};
   if (record.reportStatus==='reviewed') return {label:'보고서 확인 완료',tone:'success',overdue:false,needsReport:false};
   if (record.reportStatus==='received') return {label:'보고서 검토 대기',tone:'warning',overdue:false,needsReport:false};
   if (overdue) return {label:'보고서 제출 기한 경과',tone:'danger',overdue,needsReport};
   if (needsReport) return {label:'체험 종료 · 보고서 미제출',tone:'warning',overdue,needsReport};
   if (validToday && record.startDate && record.startDate<=today && record.endDate>=today) return {label:'체험 진행 중',tone:'info',overdue,needsReport};
-  return {label:'승인 완료 · 체험 예정',tone:'info',overdue,needsReport};
+  return {label:'신청서 접수 · 체험 예정',tone:'info',overdue,needsReport};
 }
 
 /** Export only checked content, never the source text or image metadata. */

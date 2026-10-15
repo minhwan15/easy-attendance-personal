@@ -45,8 +45,8 @@ test('unselected records are ignored and confirmed records are excluded without 
   assert.throws(() => prepareExperienceNeis({ records: [confirmed], datesByRecord: { confirmed: [dates[0]] } }), /이미 나이스 입력 완료/);
 });
 
-test('unapproved or incomplete selected records cannot reach the NEIS queue', () => {
-  for (const overrides of [{ approvalStatus: 'pending' }, { approvalStatus: 'cancelled' },
+test('rejected, cancelled or incomplete selected records cannot reach the NEIS queue', () => {
+  for (const overrides of [{ approvalStatus: 'rejected' }, { approvalStatus: 'cancelled' },
     { applicationStatus: 'missing' }, { reviewStatus: 'draft' }, { reason: '' }]) {
     assert.throws(() => prepareExperienceNeis({ records: [trip(overrides)], datesByRecord: { 'trip-one': [dates[0]] } }));
   }
@@ -72,10 +72,10 @@ test('multiple students preserve stable date then student order and never add in
   assert(!result.rows.some(row => ['2026-11-21', '2026-11-22', dates[1]].includes(row.date)));
 });
 
-test('all pending sends multiple students and dates excluding confirmed days and unapproved applications',()=>{
+test('all pending sends multiple students and dates excluding confirmed days and rejected applications',()=>{
   const first=trip({neisConfirmedDates:[dates[0]]});
   const second=trip({id:'two',studentId:'30802'});
-  const result=prepareExperienceNeis({records:[first,second,trip({id:'draft',studentId:'30803',approvalStatus:'pending'})],allPending:true});
+  const result=prepareExperienceNeis({records:[first,second,trip({id:'draft',studentId:'30803',approvalStatus:'rejected'})],allPending:true});
   assert.equal(result.rows.length,5);
   assert(!result.rows.some(r=>r.studentId==='30801'&&r.date===dates[0]));
   assert(!result.rows.some(r=>r.studentId==='30803'));
