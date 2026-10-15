@@ -21,7 +21,17 @@ export function prepareExperienceNeis({ records = [], datesByRecord = {}, blocke
     selected.push(normalizeRecord({ ...record, attendanceDates: dates, neisConfirmedDates: [],
       experienceDayStatuses: Object.fromEntries(Object.entries(record.experienceDayStatuses || {}).filter(([date]) => dates.includes(date))) }));
   }
-  if (!selected.length) throw new Error('나이스에 입력할 날짜를 선택해 주세요. 이미 저장 확인한 기록은 제외됩니다.');
+  if (!selected.length) {
+    const active=records.filter(r=>r.category==='experience'&&!['cancelled','rejected'].includes(r.approvalStatus));
+    if(allPending){
+      if(!active.some(r=>r.attendanceDates?.length))throw new Error('표에서 ‘신청서’를 누른 뒤, 학생의 체험학습 날짜 칸을 눌러 입력해 주세요.');
+      const pending=active.filter(r=>r.entryStatus!=='confirmed'&&r.attendanceDates?.some(d=>!(r.neisConfirmedDates||[]).includes(d)));
+      if(!pending.length)throw new Error('모든 체험학습 날짜가 이미 나이스 입력 완료 상태입니다. 다시 보낼 날짜가 없습니다.');
+      if(pending.some(r=>r.approvalStatus!=='approved'))throw new Error('신청서가 입력된 날짜 칸을 선택한 뒤 ‘선택 승인’을 눌러 주세요.');
+      throw new Error('입력 내용을 확인해야 하는 체험학습이 있습니다. 해당 날짜 칸을 선택하고 ‘상세’를 눌러 확인해 주세요.');
+    }
+    throw new Error('학생 행과 날짜 열이 만나는 칸을 선택해 주세요. 이미 나이스 입력 완료인 날짜는 제외됩니다.');
+  }
   const rows = toNeisRows(selected);
   if(!rows.length)throw new Error('나이스에 새로 입력할 날짜가 없습니다. 저장 확인한 날짜는 제외됩니다.');
   if (rows.length > 2000) throw new Error('한 번에 2,000일 이하로 나누어 보내 주세요.');
@@ -29,7 +39,9 @@ export function prepareExperienceNeis({ records = [], datesByRecord = {}, blocke
 }
 
 export function openExperienceNeis(options) {
-  const prepared = prepareExperienceNeis(options);
+  let prepared;
+  try {prepared=prepareExperienceNeis(options);}
+  catch(error){return showExperienceInputHelp(error.message);}
   const dialog = document.createElement('dialog');
   dialog.className = 'dialog experience-neis-dialog';
   dialog.setAttribute('aria-labelledby', 'experience-neis-title');
@@ -65,4 +77,29 @@ export function openExperienceNeis(options) {
   };
   dialog.showModal();
   return dialog;
+}
+
+function showExperienceInputHelp(message){
+ const dialog=document.createElement('dialog');dialog.className='dialog experience-neis-dialog';
+ dialog.setAttribute('aria-labelledby','experience-help-title');
+ const done=message.includes('이미 나이스 입력 완료 상태');
+ dialog.innerHTML=`<div class="dialog-head"><h2 id="experience-help-title">${done?'보낼 기록이 없습니다':'체험학습 입력 위치 안내'}</h2><button type="button" class="icon-btn" data-help-close aria-label="닫기">×</button></div><div style="padding:20px"><p style="line-height:1.7">${esc(message)}</p>${done?'':`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:18px"><button type="button" class="btn primary" data-help-target="application">신청서 입력하기</button><button type="button" class="btn" data-help-target="approval">승인할 날짜 고르기</button></div><p style="font-size:13px;margin-top:14px">버튼을 누르면 창이 닫히고 표의 해당 위치로 이동합니다.</p>`}</div><footer class="dialog-footer"><button type="button" class="btn" data-help-close>닫기</button></footer>`;
+ document.body.append(dialog);
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ dialog.querySelectorAll('[data-help-close]').forEach(b=>b.onclick=()=>dialog.close());
+ dialog.querySelectorAll('[data-help-target]').forEach(b=>b.onclick=()=>{
+  const application=b.dataset.helpTarget==='application';
+  dialog.close();
+  const root=document.querySelector('.experience-grid');
+  if(!root)return;
+  const mark=root.querySelector('[data-grid-mark="신"]');
+  if(application&&mark?.getAttribute('aria-pressed')!=='true')mark?.click();
+  if(!application)root.querySelector('[data-grid-mark][aria-pressed="true"]')?.click();
+  const target=root.querySelector(application?'[data-grid-mark="신"]':'[data-grid-scroll]');
+  target?.scrollIntoView({block:'center',behavior:'smooth'});target?.focus();
+  if(target){target.style.outline='3px solid #2454d6';target.style.outlineOffset='4px';setTimeout(()=>{target.style.outline='';target.style.outlineOffset='';},5000);}
+  const error=root.querySelector('[data-grid-error]');
+  if(error)error.textContent=application?'아래 표에서 학생 행과 날짜 열이 만나는 칸을 누르세요.':'신청서가 있는 날짜 칸을 고른 뒤, 표 위의 ‘선택 승인’을 누르세요.';
+ });
+ dialog.showModal();return dialog;
 }
