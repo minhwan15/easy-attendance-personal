@@ -4,12 +4,13 @@ import { reportPlan } from './report-plan.js';
 import { attendancePlan } from './attendance-plan.js';
 import { PANEL_MESSAGE } from './bridge-core.js';
 const $ = id => document.getElementById(id);
-let rows=[],progress={},current=0,busy=false,transferId='',queueChanges=0,workMode='attendance';
+let rows=[],progress={},current=0,busy=false,transferId='',queueChanges=0,workMode='attendance',retryRound=0;
 const row=()=>rows[current];
 const completed=item=>verified(progress,item);
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
 async function persist(){const result=await chrome.runtime.sendMessage({type:PANEL_MESSAGE,protocol:1,command:'save',transferId,progress,current});if(!result?.ok)throw new Error(result?.error||'진행 상태를 저장하지 못했습니다.');}
 function applyQueue(saved,message='앱에서 기록을 받았습니다.'){
+ retryRound=0;
  rows=saved?.rows?.length?parseQueue({schemaVersion:1,source:'teacher-notebook',rows:saved.rows}):[];
  progress=saved?.progress||{};current=Math.max(0,Math.min(Number(saved?.current)||0,rows.length-1));transferId=saved?.transferId||'';
  render();status(rows.length?message:'입력 대기를 지웠습니다.');
@@ -88,7 +89,7 @@ async function fillReport(){
  }catch(error){$('grid-status').textContent=error.message;}finally{busy=false;updateButtons();}
 }
 for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(busy)return;workMode=button.dataset.workMode;$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateButtons();});
-$('grid-fill').addEventListener('click',()=>workMode==='report'?fillReport():fillCurrentGrid());
+$('grid-fill').addEventListener('click',()=>{retryRound=0;return workMode==='report'?fillReport():fillCurrentGrid();});
 async function advanceAfterSave(savedTransfer) {
   if(transferId!==savedTransfer)return;
     const next = rows.findIndex((item,index)=>index>current&&!completed(item)&&!progress[item.queueId]?.skipError);
@@ -99,15 +100,33 @@ async function advanceAfterSave(savedTransfer) {
       finally{busy=false;updateButtons();}
       if(transferId!==savedTransfer)return;
       status('다음 학생·날짜를 입력합니다. 실패한 건은 미입력 목록에 남깁니다.');
+      await new Promise(resolve=>setTimeout(resolve,400));
+      if(transferId!==savedTransfer)return;
       await fillCurrentGrid();
       return;
     }
   updateProgress();
-  const failed=rows.filter(item=>progress[item.queueId]?.skipError);
-  status(failed.length?`처리 종료 · 미입력 ${failed.length}건. 아래 목록을 확인하세요.`:'전체 저장 완료 · 앱 대기함에 반영됩니다.',failed.length>0);
+  const failed=rows.filter(item=>!completed(item));
+  if(failed.length&&retryRound<2){
+    retryRound++;
+    busy=true;updateButtons();
+    status(`미입력 ${failed.length}건 자동 재시도 ${retryRound}/2 · 완료된 건은 제외합니다.`);
+    try{
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      if(transferId!==savedTransfer)return;
+      progress=retryProgress(rows,progress);current=rows.findIndex(item=>!completed(item));
+      await persist();render();
+      status(`미입력 자동 재시도 ${retryRound}/2 진행 중…`);
+    }catch(error){status('재시도를 시작하지 못했습니다: '+error.message,true);return;}
+    finally{busy=false;updateButtons();}
+    if(transferId===savedTransfer)await fillCurrentGrid();
+    return;
+  }
+  status(failed.length?`자동 재시도 2회 종료 · 미입력 ${failed.length}건. 나이스 화면을 확인한 뒤 ‘미입력된 명단 일괄 재입력’을 눌러 주세요.`:'전체 저장 완료 · 앱 대기함에 반영됩니다.',failed.length>0);
 }
 $('retry-pending').addEventListener('click',async()=>{
   if(busy||workMode!=='attendance')return;
+  retryRound=0;
   const first=rows.findIndex(item=>!completed(item));if(first<0)return;
   const activeTransfer=transferId,previous=progress;busy=true;updateButtons();
   try{progress=retryProgress(rows,progress);current=first;await persist();render();busy=false;if(transferId===activeTransfer)await fillCurrentGrid();}

@@ -6,6 +6,11 @@ if(origin){const u=new URL(origin);if(u.protocol!=='https:'||u.pathname!=='/'||u
  for(const file of ['public/src/notebook-neis-bridge.js','neis-helper/notebook-bridge.js','neis-helper/bridge-core.js']){let t=await readFile(file,'utf8');t=t.replace(/((?:const NOTEBOOK_ORIGIN|const origin)\s*=\s*)'[^']+'/g,(_,prefix)=>prefix+JSON.stringify(origin));await writeFile(file,t);}
  const m=JSON.parse(await readFile('neis-helper/manifest.json','utf8'));m.content_scripts[0].matches=[origin+'/*'];await writeFile('neis-helper/manifest.json',JSON.stringify(m,null,2));
 }else console.warn('배포 후 APP_ORIGIN에 최종 앱 주소를 설정하고 다시 배포하세요.');
+// Align the visible download version with this personal helper package.
+const helperManifest=JSON.parse(await readFile('neis-helper/manifest.json','utf8'));
+const guidePath='public/src/notebook-neis-guide.js';
+const guide=await readFile(guidePath,'utf8');
+await writeFile(guidePath,guide.replace(/1\.0\.1/g,helperManifest.version));
 // Create a portable ZIP using only Node built-ins, avoiding OS-specific zip tools.
 const files=(await readdir('neis-helper')).filter(x=>!x.endsWith('test.mjs'));
 const table=Array.from({length:256},(_,n)=>{for(let k=0;k<8;k++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});

@@ -167,7 +167,7 @@
     const s=state(target);
     return !s.unknown&&expectedKind(row).includes(s.kind)&&s.reason===clean(row.reason)&&s.marks.length===plan.marks.length&&plan.marks.every(x=>s.marks.includes(x));
   }
-  async function waitFor(check,message) {const end=Date.now()+2500;while(Date.now()<end){if(check())return;await new Promise(resolve=>setTimeout(resolve,45));}throw new Error(message);}
+  async function waitFor(check,message) {const end=Date.now()+6000;while(Date.now()<end){if(check())return;await new Promise(resolve=>setTimeout(resolve,45));}throw new Error(message);}
   async function run(row,plan,autoSave=false) {
     if(running)throw new Error('자동입력 중입니다.');running=true;
     let stage='확인';
@@ -202,7 +202,7 @@
       selector.dispatchEvent(new view.MouseEvent('mousedown',{...mouseOptions,buttons:1}));
       selector.dispatchEvent(new view.MouseEvent('mouseup',{...mouseOptions,buttons:0}));
       selector.click();
-      await new Promise(resolve=>setTimeout(resolve,100));
+      await new Promise(resolve=>setTimeout(resolve,250));
       again();
       const cutoff=again().map.get('마감');const opener=cutoff.querySelector('.cl-control')||cutoff;
       if(!enabled(opener))throw new Error('마감 칸을 누를 수 없습니다.');

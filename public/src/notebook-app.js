@@ -144,6 +144,10 @@ function changeSection(section){
 function bindShell(){
   document.querySelector('#personal-settings')?.addEventListener('click',()=>openPersonalSettings({profile:state.profile,onSaved:result=>{accept(result);render();},notify:toast,saveBefore:saveGridBeforeLeaving}));
 
+  document.querySelectorAll('[data-copy-extension-address]').forEach(button=>button.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText('chrome://extensions');button.textContent='복사됨 · 새 탭 주소창에 붙여넣기';}
+    catch{window.prompt('아래 주소를 복사해 새 탭 주소창에 붙여넣으세요.','chrome://extensions');}
+  }));
   document.querySelector('#go-home')?.addEventListener('click',()=>changeSection('home'));
   document.querySelector('#open-roster')?.addEventListener('click',()=>afterGridSave(openRoster));
   document.querySelector('#logout')?.addEventListener('click',async()=>{if(!await saveGridBeforeLeaving())return;if(!confirm('이 기기의 연결을 해제할까요? 다른 기기 또는 복구 코드로 다시 연결할 수 있습니다.'))return;if(demo){location.href='/notebook.html';return;}try{await api({action:'logout'},'POST');accept({authenticated:false});state.section='home';render();}catch(error){toast(error.message);}});

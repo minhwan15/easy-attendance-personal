@@ -30,7 +30,9 @@ export function matchingStudents(students,query){
   }
   return Infinity;
  };
- return people.map(s=>({student:s,score:score(s)})).filter(x=>Number.isFinite(x.score)).sort((a,b)=>a.score-b.score||a.student.studentId.localeCompare(b.student.studentId)).map(x=>x.student);
+ const ranked=people.map(s=>({student:s,score:score(s)})).filter(x=>Number.isFinite(x.score));
+ const direct=ranked.filter(x=>x.score<10);
+ return (direct.length?direct:ranked.filter(x=>q.length>=3)).sort((a,b)=>a.score-b.score||a.student.studentId.localeCompare(b.student.studentId)).map(x=>x.student);
 }
 export function exactStudent(students,query){const q=clean(query),matches=matchingStudents(students,query).filter(s=>q===s.studentId||q===clean(s.studentName)||q===clean(s.studentId+s.studentName));return matches.length===1?matches[0]:null;}
 let matcherId=0;
@@ -50,8 +52,6 @@ export function bindStudentMatcher({inputs,students,onSelect,autoSelectId=true})
   const refresh=event=>{
    if(applying||input.disabled||input.readOnly)return;
    clear();const list=typeof students==='function'?students():students;
-   const exact=exactStudent(list,input.value);
-   if(!composing&&!event?.isComposing&&autoSelectId&&exact&&clean(input.value)===exact.studentId){select(exact,input);return;}
    const matches=matchingStudents(list,input.value);
    for(const student of matches){
     const button=doc.createElement('button');button.type='button';button.className='btn small student-match-option';button.textContent=student.studentName+' · '+student.studentId+' · '+Number(student.studentId.slice(0,1))+'학년 '+Number(student.studentId.slice(1,3))+'반 '+Number(student.studentId.slice(3))+'번';
