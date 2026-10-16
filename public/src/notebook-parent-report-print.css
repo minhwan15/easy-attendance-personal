@@ -1,0 +1,4 @@
+@page{size:A4 portrait;margin:10mm}
+html,body{margin:0;padding:0;background:#fff}
+svg{display:block;width:190mm;height:270mm;max-width:100%}
+@media print{html,body{width:190mm;height:270mm;overflow:hidden}svg{break-inside:avoid;page-break-inside:avoid}}
