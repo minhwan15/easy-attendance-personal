@@ -7,7 +7,7 @@ export function chromeNeisNoticeHtml(){
 /** Shared, optional instructions for the queue and the experience export dialog. */
 export function neisGuideHtml({ experience = false, exam = false, chromeNotice = true } = {}) {
   if(chromeNotice)return '<p class="helper-note">같은 PC Chrome에서 나이스를 열고 도우미로 입력하세요. 설치 안내는 <a href="/notebook.html">홈화면</a>에서 확인할 수 있습니다.</p>';
-  return `${chromeNotice?chromeNeisNoticeHtml():''}<section class="section-info"><strong>쉬운출결 개인용 나이스 입력 도우미</strong><p>처음 설치하거나 도우미를 업데이트할 때 내려받으세요.</p><div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;margin-top:12px"><a class="btn small primary" href="/downloads/easy-attendance-helper.zip?v=1.0.1" download>나이스 도우미 다운로드 · 1.0.1 · 2026.10.16 업데이트</a><strong style="display:inline-block;margin:0;padding:5px 10px;border-radius:8px;background:#fff1df;color:#a84400;font-size:14px;vertical-align:middle">일괄 입력 성공률 향상</strong></div></section><details class="helper-setup neis-guide" data-neis-setup>
+  return `${chromeNotice?chromeNeisNoticeHtml():''}<section class="section-info"><strong>쉬운출결 개인용 나이스 입력 도우미</strong><p>처음 설치하거나 도우미를 업데이트할 때 내려받으세요.</p><div class="helper-download-row"><a class="btn small primary" href="/downloads/easy-attendance-helper.zip?v=1.0.1" download>나이스 도우미 다운로드 · 1.0.1 · 2026.10.16 업데이트</a><strong class="helper-release-highlight">일괄 입력 성공률 향상</strong></div></section><details class="helper-setup neis-guide" data-neis-setup>
     <summary>나이스 입력 도우미 · 설치부터 사용까지 따라 하기</summary>
     <div class="neis-guide-body">
       <p class="neis-guide-intro">PC의 같은 Chrome에서 ${exam?'고사 캘린더':'기록함'}과 나이스를 각각 탭으로 여세요. 설치는 처음 한 번만 하면 됩니다.</p>
