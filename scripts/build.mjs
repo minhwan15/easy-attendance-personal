@@ -10,7 +10,7 @@ if(origin){const u=new URL(origin);if(u.protocol!=='https:'||u.pathname!=='/'||u
 const helperManifest=JSON.parse(await readFile('neis-helper/manifest.json','utf8'));
 const guidePath='public/src/notebook-neis-guide.js';
 const guide=await readFile(guidePath,'utf8');
-await writeFile(guidePath,guide.replace(/1\.0\.1/g,helperManifest.version));
+await writeFile(guidePath,guide.replace(/1\.0\.\d+/g,helperManifest.version));
 // Create a portable ZIP using only Node built-ins, avoiding OS-specific zip tools.
 const files=(await readdir('neis-helper')).filter(x=>!x.endsWith('test.mjs'));
 const table=Array.from({length:256},(_,n)=>{for(let k=0;k<8;k++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});

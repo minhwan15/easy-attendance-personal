@@ -1,8 +1,9 @@
 import { parseQueue } from './core.js';
 
-export const NOTEBOOK_ORIGIN = 'https://easy-attendance-personal.minhwan15370665.chatgpt.site';
+export const NOTEBOOK_ORIGIN = "https://easy-attendance-personal.vercel.app";
 export const APP_MESSAGE = 'TEACHER_NOTEBOOK_APP_BRIDGE';
 export const PANEL_MESSAGE = 'TEACHER_NOTEBOOK_PANEL_STATE';
+export const queueWorkMode = payload => payload?.workMode==='report'?'report':'attendance';
 export const MAX_QUEUE_BYTES = 4 * 1024 * 1024;
 
 export function isNotebookUrl(value) {
@@ -45,7 +46,7 @@ export function createQueueMessageHandler({ extensionId, read, write, remove, re
         if (message.command !== 'queue') throw new Error('지원하지 않는 연결 요청입니다.');
         const rows = boundedQueue(message.payload);
         return await enqueue(async () => {
-          await write({ rows, progress: {}, current: 0, transferId: message.requestId });
+          await write({ rows, workMode:queueWorkMode(message.payload), progress: {}, current: 0, transferId: message.requestId });
           return { ok: true, count: rows.length };
         });
       }
@@ -54,7 +55,7 @@ export function createQueueMessageHandler({ extensionId, read, write, remove, re
         if (!validId(message.requestId)) throw new Error('입력 자료의 식별자를 확인해 주세요.');
         const rows = boundedQueue(message.payload);
         return await enqueue(async () => {
-          const state = { rows, progress: {}, current: 0, transferId: message.requestId };
+          const state = { rows, workMode:queueWorkMode(message.payload), progress: {}, current: 0, transferId: message.requestId };
           await write(state);
           return { ok: true, state };
         });
@@ -79,10 +80,11 @@ export function createQueueMessageHandler({ extensionId, read, write, remove, re
         const reset=rows.filter(row=>!done(progress[row.queueId])&&done(state.progress?.[row.queueId]));
         if(newlySaved.length)await recordCompleted(newlySaved.map(row=>({completionId:`${state.transferId}:${row.queueId}:done:${crypto.randomUUID()}`,autoVerified:progress[row.queueId].autoVerified,...(progress[row.queueId].manualConfirmed?{manualConfirmed:true}:{}),row})));
         if(reset.length)await recordCompleted(reset.map(row=>({completionId:`${state.transferId}:${row.queueId}:undo:${crypto.randomUUID()}`,autoVerified:false,manualConfirmed:true,revoked:true,row})));
-        await write({ ...state, rows, progress, current: message.current });
+        await write({ ...state, rows, progress, current: message.current, workMode:message.workMode==='report'?'report':message.workMode==='attendance'?'attendance':state.workMode||'attendance' });
         return { ok: true };
       });
     } catch (error) { return { ok: false, error: error.message || '입력 대기를 전달하지 못했습니다.' }; }
   };
 }
+
 

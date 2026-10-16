@@ -19,7 +19,7 @@
         const category=combos.filter(e=>/신고구분$/.test(label(e))),status=combos.filter(e=>/교육활동처리상태코드$|접수상태$/.test(label(e)));
         const periods=combos.filter(e=>!category.includes(e)&&!status.includes(e));
         const saves=saveButtons(box);
-        if(category.length===1&&status.length===1&&periods.length===2&&text(box).includes('신고서상세조회')){
+        if(category.length===1&&status.length===1&&(periods.length===2||periods.length===0)&&text(box).includes('신고서상세조회')){
           if(!found.some(x=>x.box===box))found.push({box,area,category:category[0],status:status[0],periods,save:saves.length===1?saves[0]:null,d});break;
         }
       }
@@ -35,8 +35,18 @@
     const id=String(row.studentId||'');if(!/^[1-3]\d{4}$/.test(id)||!row.studentName)throw new Error('학생 학번·이름을 확인해 주세요.');
     const source=text(p.box),identity=`${Number(id[0])}학년${Number(id.slice(1,3))}반${Number(id.slice(3))}번${String(row.studentName).replace(/\s+/g,'')}`;
     if(!source.includes(identity))throw new Error('열린 신고서의 학생이 앱에서 선택한 학생과 다릅니다.');
+    if(row.attendanceType==='결석'){
+      if(!source.includes('결석신고서상세조회'))throw new Error('열린 신고서의 종류가 앱 기록과 다릅니다.');
+      // Use the absence range, not the separate application date.
+      const ranges=[...new Set([...p.box.querySelectorAll('*')].filter(visible).flatMap(node=>text(node).match(/\d{4}[.-]\d{2}[.-]\d{2}[~∼～]\d{4}[.-]\d{2}[.-]\d{2}/g)||[]).map(range=>range.replaceAll('.','-').replace(/[∼～]/g,'~')))];
+      if(ranges.length!==1)throw new Error('결석기간을 정확히 확인하지 못했습니다.');
+      const [start,end]=ranges[0].split('~');
+      if(start!==row.date||end!==row.date)throw new Error('결석기간이 앱 기록의 날짜와 다릅니다. 여러 날의 신고서는 나이스에서 직접 확인해 주세요.');
+      return;
+    }
     const kinds=[...p.box.querySelectorAll('*')].filter(e=>visible(e)&&!e.children.length&&['지각','조퇴','결과'].includes(text(e)));
     if(kinds.length!==1||text(kinds[0])!==row.attendanceType)throw new Error('열린 신고서의 종류가 앱 기록과 다릅니다.');
+    if(p.periods.length!==2)throw new Error('신고서 교시 두 칸을 찾지 못했습니다.');
     let dateFound=false;
     for(let range=p.periods[0].parentElement;range&&range!==p.box;range=range.parentElement){
       if(!range.contains(p.periods[1]))continue;
@@ -117,10 +127,13 @@
       const p=find();verify(row,p);
       const same=()=>{const next=find();if(next.box!==p.box)throw new Error('신고서 화면이 바뀌었습니다.');verify(row,next);return next;};
       if(!enabled(p.area)||p.area.readOnly)throw new Error('이 신고서는 수정·저장할 수 없습니다.');
-      await choose(p.category,plan.reasonType,p,same);
+      const categoryValue=row.attendanceType==='결석'?(plan.reasonType==='출석인정'?'인정결석':plan.reasonType+'결석'):plan.reasonType;
+      await choose(p.category,categoryValue,p,same);
       await choose(same().status,'접수',p,same);
+      if(row.attendanceType!=='결석'){
       await choose(same().periods[0],plan.start,p,same);
       await choose(same().periods[1],row.attendanceType==='조퇴'?'종례':plan.end,p,same);
+      }
       const area=same().area,view=area.ownerDocument.defaultView;
       if(!enabled(area)||area.readOnly)throw new Error('담임 사유 입력칸을 수정할 수 없습니다.');
       if(area.maxLength>=0&&plan.reason.length>area.maxLength)throw new Error('사유가 입력칸 최대 길이를 넘습니다.');
@@ -128,7 +141,7 @@
       for(const name of ['input','change','blur'])area.dispatchEvent(new view.Event(name,{bubbles:name!=='blur'}));
       await wait(()=>same().area.value===plan.reason,'담임 사유 입력을 확인하지 못했습니다.');
       const current=same();
-      if(!selected(current.category,plan.reasonType)||!selected(current.status,'접수')||!selected(current.periods[0],plan.start)||!selected(current.periods[1],row.attendanceType==='조퇴'?'종례':plan.end))throw new Error('저장 전 선택 값이 달라졌습니다.');
+      if(!selected(current.category,categoryValue)||!selected(current.status,'접수')||(row.attendanceType!=='결석'&&(!selected(current.periods[0],plan.start)||!selected(current.periods[1],row.attendanceType==='조퇴'?'종례':plan.end))))throw new Error('저장 전 선택 값이 달라졌습니다.');
       if(current.area.value!==plan.reason)throw new Error('저장 전 담임 사유가 달라졌습니다.');
       const dialog=current.area.closest('.cl-dialog')||current.box;
       const saves=saveButtons(dialog);
@@ -143,3 +156,4 @@
     fill(message.row,message.plan).then(respond).catch(error=>respond({ok:false,error:error.message}));return true;
   });
 })();
+

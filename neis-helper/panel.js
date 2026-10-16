@@ -8,22 +8,22 @@ let rows=[],progress={},current=0,busy=false,transferId='',queueChanges=0,workMo
 const row=()=>rows[current];
 const completed=item=>verified(progress,item);
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
-async function persist(){const result=await chrome.runtime.sendMessage({type:PANEL_MESSAGE,protocol:1,command:'save',transferId,progress,current});if(!result?.ok)throw new Error(result?.error||'진행 상태를 저장하지 못했습니다.');}
+async function persist(){const result=await chrome.runtime.sendMessage({type:PANEL_MESSAGE,protocol:1,command:'save',transferId,progress,current,workMode});if(!result?.ok)throw new Error(result?.error||'진행 상태를 저장하지 못했습니다.');}
 function applyQueue(saved,message='앱에서 기록을 받았습니다.'){
  retryRound=0;
  rows=saved?.rows?.length?parseQueue({schemaVersion:1,source:'teacher-notebook',rows:saved.rows}):[];
  progress=saved?.progress||{};current=Math.max(0,Math.min(Number(saved?.current)||0,rows.length-1));transferId=saved?.transferId||'';
- render();status(rows.length?message:'입력 대기를 지웠습니다.');
+ setWorkMode(saved?.workMode);render();status(rows.length?message:'입력 대기를 지웠습니다.');
 }
 function renderList(){
  const list=$('student-list'),top=list.scrollTop;
  list.replaceChildren(...queueOrder(rows,progress).map(({item,index})=>{
- const button=document.createElement('div');button.className='student-item'+(completed(item)?' is-completed':'');button.disabled=busy;button.setAttribute('aria-current',index===current?'true':'false');
- const check=document.createElement('input');check.type='checkbox';check.checked=completed(item);check.disabled=busy||workMode==='report';check.setAttribute('aria-label',`${item.studentName} ${item.date} 나이스 입력 완료 표시 · 해제하면 미입력`);check.title='체크: 입력 완료 / 해제: 미입력으로 되돌리기. 나이스 저장 내용은 바뀌지 않습니다.';check.addEventListener('click',event=>event.stopPropagation());check.addEventListener('change',()=>markManualCompleted(item,check.checked));
+ const button=document.createElement('div');button.className='student-item'+(workMode==='attendance'&&completed(item)?' is-completed':'');button.disabled=busy;button.setAttribute('aria-current',index===current?'true':'false');
+ const check=document.createElement('input');check.type='checkbox';check.hidden=workMode==='report';check.checked=completed(item);check.disabled=busy||workMode==='report';check.setAttribute('aria-label',`${item.studentName} ${item.date} 나이스 입력 완료 표시 · 해제하면 미입력`);check.title='체크: 입력 완료 / 해제: 미입력으로 되돌리기. 나이스 저장 내용은 바뀌지 않습니다.';check.addEventListener('click',event=>event.stopPropagation());check.addEventListener('change',()=>markManualCompleted(item,check.checked));
  const text=document.createElement('span'),name=document.createElement('strong'),detail=document.createElement('small');
  name.textContent=`${item.studentId||`${item.classNumber}반 ${item.number}번`} ${item.studentName}`;
  detail.textContent=`${item.date} · ${item.reasonType} ${item.attendanceType}${item.periods?' · '+item.periods:''}`;
- text.append(name,detail);const state=document.createElement('span');state.className='student-state';state.textContent=completed(item)?(progress[item.queueId]?.manualConfirmed?'✓ 수기 완료':'✓ 완료'):progress[item.queueId]?.skipError?'미입력':index===current?'선택됨':'대기';
+ text.append(name,detail);const state=document.createElement('span');state.className='student-state';state.textContent=workMode==='report'?(index===current?'신고서 선택됨':'신고서 선택'):completed(item)?(progress[item.queueId]?.manualConfirmed?'✓ 수기 완료':'✓ 완료'):progress[item.queueId]?.skipError?'미입력':index===current?'선택됨':'대기';
  const select=document.createElement('button');select.type='button';select.className='student-select';select.disabled=busy;select.setAttribute('aria-label',`${item.studentName} ${item.date} 자동입력할 기록 선택`);select.append(text,state);button.append(check,select);select.onclick=async()=>{if(busy)return;current=index;render();try{await persist();}catch(error){status(error.message,true);}};return button;
  }));list.scrollTop=top;
 }
@@ -44,8 +44,9 @@ function updateButtons(){
  for(const check of $('student-list').querySelectorAll('input'))check.disabled=busy||workMode==='report';
 }
 function updateProgress(){
- renderList();$('count').textContent=`${rows.filter(completed).length}/${rows.length}건 완료`;
- const skipped=rows.filter(item=>progress[item.queueId]?.skipError);$('skip-summary').hidden=!skipped.length;
+ renderList();$('count').textContent=workMode==='report'?`신고서 대상 ${rows.length}건`:`${rows.filter(completed).length}/${rows.length}건 완료`;
+ $('completion-help').textContent=workMode==='report'?'일일출결 완료와 별개입니다. 학생을 선택하고 나이스에서 같은 학생의 신고서 상세를 여세요.':'체크하면 일일출결 입력 완료 · 다시 누르면 해제됩니다.';
+ const skipped=workMode==='report'?[]:rows.filter(item=>progress[item.queueId]?.skipError);$('skip-summary').hidden=!skipped.length;
  $('skip-list').textContent=skipped.map(item=>`${item.studentId} ${item.studentName} · ${item.date}\n${progress[item.queueId].skipError}`).join('\n\n');
 }
 function render(){
@@ -88,7 +89,8 @@ async function fillReport(){
  const result=await chrome.tabs.sendMessage(tab.id,{type:'TEACHER_NOTEBOOK_REPORT',command:'fill',row:item,plan});if(!result?.ok)throw new Error(result?.error||'신고서에 입력하지 못했습니다.');$('grid-status').textContent=result.message;
  }catch(error){$('grid-status').textContent=error.message;}finally{busy=false;updateButtons();}
 }
-for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(busy)return;workMode=button.dataset.workMode;$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateButtons();});
+function setWorkMode(mode){workMode=mode==='report'?'report':'attendance';$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateProgress();updateButtons();}
+for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(!busy)setWorkMode(button.dataset.workMode);});
 $('grid-fill').addEventListener('click',()=>{retryRound=0;return workMode==='report'?fillReport():fillCurrentGrid();});
 async function advanceAfterSave(savedTransfer) {
   if(transferId!==savedTransfer)return;
@@ -149,5 +151,6 @@ try {
     applyQueue(saved, '브라우저를 종료하기 전의 입력 대기를 불러왔습니다.');
   } else updateButtons();
 } catch { status('이전 입력 대기를 읽지 못했습니다. 앱에서 다시 보내 주세요.', true); }
+
 
 

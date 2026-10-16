@@ -29,7 +29,8 @@ export function prepareNeisTransfer(payload){
   const key=row.studentId+'|'+row.date;if(seen.has(key))throw new Error(row.studentName+' · '+row.date+': 같은 학생·날짜의 기록이 겹칩니다. 앱에서 내용을 확인한 뒤 한 건으로 보내 주세요.');seen.add(key);
   return row;
  });
- const result={schemaVersion:payload.schemaVersion,source:payload.source,...(payload.exportedAt?{exportedAt:payload.exportedAt}:{}),rows};
+ const result={schemaVersion:payload.schemaVersion,source:payload.source,...(payload.exportedAt?{exportedAt:payload.exportedAt}:{}),...(['attendance','report'].includes(payload.workMode)?{workMode:payload.workMode}:{}),rows};
  if(new TextEncoder().encode(JSON.stringify(result)).length>4*1024*1024)throw new Error('보낼 기록을 4MB 이하로 나누어 선택해 주세요.');
  return result;
 }
+

@@ -1,4 +1,5 @@
 import {renderPersonalAuth,openPersonalSettings} from './personal-ui.js';
+import { reportQueueRecords } from './notebook-report-queue.js';
 import { openExperienceWeek } from './notebook-experience-week-ui.js';
 import { todayAttendance, attendanceStep, nextAttendanceAction } from './notebook-flow.js';
 import { dailyExamRecords, mergeDailyRecords, isExamRecord } from './notebook-daily-records.js';
@@ -35,7 +36,7 @@ const app = document.querySelector('#notebook-app');
 const dialog = document.querySelector('#notebook-editor');
 const toastElement = document.querySelector('#notebook-toast');
 const demo = new URLSearchParams(location.search).get('demo') === '1';
-const state = { user:null, records:[], students:[], parentReplies:normalizeParentReplies(), experienceSettings:normalizeExperienceSettings(), experienceView:'sheet', section:initialSection, queueDate:todaySeoul(), tab:initialSection==='experience'?'experience':'records', filter:'all', search:'', selected:new Set(), authMode:new URLSearchParams(location.search).get('auth')==='personal'?'login':'class', classLoginEnabled:false, classLoginName:'', experienceYear:academicYear(todaySeoul()), loading:false, error:'', revision:0 };
+const state = { user:null, records:[], students:[], parentReplies:normalizeParentReplies(), experienceSettings:normalizeExperienceSettings(), experienceView:'sheet', section:initialSection, queueDate:todaySeoul(), neisPurpose:'attendance', tab:initialSection==='experience'?'experience':'records', filter:'all', search:'', selected:new Set(), authMode:new URLSearchParams(location.search).get('auth')==='personal'?'login':'class', classLoginEnabled:false, classLoginName:'', experienceYear:academicYear(todaySeoul()), loading:false, error:'', revision:0 };
 let draft = null, before = null, uploadController = null, editorWarnings = [], conversationCandidates = [], selectedCandidateId = '', manualIdentity = {}, periodEntry = {mode:'manual',arrivalTime:''}, toastTimer;
 let morningView=null,rosterOpening=false;
 let practicalView=null,practicalDraft={},recordWrites=0,sharedSyncBusy=false;
@@ -136,6 +137,7 @@ function summaryDetailsHtml() {
  }).join(''):'<p>해당 기록이 없습니다.</p>'}</section>`;
 }
 function changeSection(section){
+  state.neisPurpose='attendance';
   state.todayType='';
   if(morningView?.isBusy()||practicalView?.isBusy()){toast('저장이 끝난 뒤 이동해 주세요.');return;}
   if(morningView?.hasPendingChanges()){toast('메모를 저장한 뒤 이동해 주세요.');return;}
@@ -248,8 +250,9 @@ function empty(message='아직 기록이 없습니다.', detail='캡처를 올�
 }
 function recordCard(r,{queue=false,blockers=false}={}) {
   const displayPeriods=withAttendanceMeetings(r.periods,r.attendanceType,{date:r.startDate,lessonCount:r.lessonCount});
+  const reportMode=queue&&state.neisPurpose==='report';
   const ready=readiness(r), exp=r.category==='experience'?experienceStatus(r,today()):null;
-  return `<article class="record-card ${r.entryStatus==='confirmed'?'record-completed':''}">${queue&&ready.ready&&r.entryStatus!=='confirmed'?`<input type="checkbox" data-select="${esc(r.id)}" aria-label="${esc(r.studentName||'이름 미확인')} ${rangeLabel(r)} 선택" ${state.selected.has(r.id)?'checked':''}>`:''}<button class="record-open" data-open="${esc(r.id)}"><span class="category-icon ${esc(r.category)}">${icon(categoryIcon(r.category))}</span><span class="record-main"><span class="record-title">${esc(r.studentName||'학생 확인 필요')}<span class="student-number">${esc(r.studentId || (r.classNumber&&r.number?`${r.classNumber}반 ${r.number}번`:''))}</span></span><span class="record-sub"><span>${isExamRecord(r)?'대학별고사':isPracticalRecord(r)?'예체능 미인정 조퇴':labels[r.category]||'기록'}</span><span>${rangeLabel(r)}</span><span>${sourceLabels[r.sourceType]||'메모'}${r.attachments?.length?` · 첨부 ${r.attachments.length}`:''}</span></span><span class="record-summary">${esc(r.reason || r.note || r.sourceText || '내용을 정리해 주세요.')}</span><span class="record-tags">${r.passKind?`<span class="badge pass-badge">${PASS_LABELS[r.passKind]} · ${esc(r.departureTime)}</span>`:''}${r.periods?`<span class="badge">${esc(r.attendanceType||"출결")} · ${esc(displayPeriods)}</span>`:''}${r.neisConfirmedDates?.length&&r.entryStatus!=='confirmed'?`<span class="badge green">나이스 ${r.neisConfirmedDates.length}일 완료 · ${toNeisRows([r]).length}일 남음</span>`:''}${isExamRecord(r)&&r.reviewStatus!=='reviewed'?`<span class="badge amber">${esc(r.note)}</span>`:''}<span class="badge ${r.entryStatus==='confirmed'?'green':'amber'}">${esc(attendanceStep(r,wasSent(r)))}</span>${exp?`<span class="badge ${exp.overdue?'red':exp.tone==='success'?'green':'amber'}">${esc(exp.label)}</span>`:''}${r.category==='experience'&&r.reportDueDate?`<span class="badge ${exp?.overdue?'red':''}">보고서 기한 ${shortDate(r.reportDueDate)}</span>`:''}${r.attendanceDates?.length?`<span class="badge">출결일 ${r.attendanceDates.length}일 선택</span>`:''}</span>${blockers&&!ready.ready?`<span class="blockers">${esc(ready.errors.join(' · '))}</span>`:''}</span></button><div class="card-right">${canIssuePass(r)?`<button class="btn small soft" data-pass="${esc(r.id)}">${r.passKind?'다시 출력':'증서 출력'}</button>`:''}${r.category==='experience'&&r.reportStatus==='missing'?`<button class="btn small soft" data-report="${esc(r.id)}">보고서 등록</button>`:''}${queue&&ready.ready&&r.entryStatus!=='confirmed'?`<button class="btn small" data-confirm="${esc(r.id)}">저장 확인</button>`:''}${r.entryStatus==='confirmed'||r.neisConfirmedDates?.length?`<button class="btn small" data-reset-neis="${esc(r.id)}">미입력으로 되돌리기</button>`:''}<button class="text-btn" data-open="${esc(r.id)}" aria-label="${esc(r.studentName||'기록')} 수정">수정</button><button class="btn small danger" ${isExamRecord(r)?'hidden':''} data-delete="${esc(r.id)}" aria-label="${esc(r.studentName||'기록')} 삭제">삭제</button></div></article>`;
+  return `<article class="record-card ${r.entryStatus==='confirmed'&&!reportMode?'record-completed':''}">${queue&&ready.ready&&(reportMode?reportQueueRecords([r],state.queueDate).length:r.entryStatus!=='confirmed')?`<input type="checkbox" data-select="${esc(r.id)}" aria-label="${esc(r.studentName||'이름 미확인')} ${rangeLabel(r)} 선택" ${state.selected.has(r.id)?'checked':''}>`:''}<button class="record-open" data-open="${esc(r.id)}"><span class="category-icon ${esc(r.category)}">${icon(categoryIcon(r.category))}</span><span class="record-main"><span class="record-title">${esc(r.studentName||'학생 확인 필요')}<span class="student-number">${esc(r.studentId || (r.classNumber&&r.number?`${r.classNumber}반 ${r.number}번`:''))}</span></span><span class="record-sub"><span>${isExamRecord(r)?'대학별고사':isPracticalRecord(r)?'예체능 미인정 조퇴':labels[r.category]||'기록'}</span><span>${rangeLabel(r)}</span><span>${sourceLabels[r.sourceType]||'메모'}${r.attachments?.length?` · 첨부 ${r.attachments.length}`:''}</span></span><span class="record-summary">${esc(r.reason || r.note || r.sourceText || '내용을 정리해 주세요.')}</span><span class="record-tags">${r.passKind?`<span class="badge pass-badge">${PASS_LABELS[r.passKind]} · ${esc(r.departureTime)}</span>`:''}${r.periods?`<span class="badge">${esc(r.attendanceType||"출결")} · ${esc(displayPeriods)}</span>`:''}${r.neisConfirmedDates?.length&&r.entryStatus!=='confirmed'?`<span class="badge green">나이스 ${r.neisConfirmedDates.length}일 완료 · ${toNeisRows([r]).length}일 남음</span>`:''}${isExamRecord(r)&&r.reviewStatus!=='reviewed'?`<span class="badge amber">${esc(r.note)}</span>`:''}<span class="badge ${r.entryStatus==='confirmed'?'green':'amber'}">${esc(attendanceStep(r,wasSent(r)))}</span>${exp?`<span class="badge ${exp.overdue?'red':exp.tone==='success'?'green':'amber'}">${esc(exp.label)}</span>`:''}${r.category==='experience'&&r.reportDueDate?`<span class="badge ${exp?.overdue?'red':''}">보고서 기한 ${shortDate(r.reportDueDate)}</span>`:''}${r.attendanceDates?.length?`<span class="badge">출결일 ${r.attendanceDates.length}일 선택</span>`:''}</span>${blockers&&!ready.ready?`<span class="blockers">${esc(ready.errors.join(' · '))}</span>`:''}</span></button><div class="card-right">${canIssuePass(r)?`<button class="btn small soft" data-pass="${esc(r.id)}">${r.passKind?'다시 출력':'증서 출력'}</button>`:''}${r.category==='experience'&&r.reportStatus==='missing'?`<button class="btn small soft" data-report="${esc(r.id)}">보고서 등록</button>`:''}${queue&&!reportMode&&ready.ready&&r.entryStatus!=='confirmed'?`<button class="btn small" data-confirm="${esc(r.id)}">저장 확인</button>`:''}${!reportMode&&(r.entryStatus==='confirmed'||r.neisConfirmedDates?.length)?`<button class="btn small" data-reset-neis="${esc(r.id)}">미입력으로 되돌리기</button>`:''}<button class="text-btn" data-open="${esc(r.id)}" aria-label="${esc(r.studentName||'기록')} 수정">수정</button><button class="btn small danger" ${isExamRecord(r)?'hidden':''} data-delete="${esc(r.id)}" aria-label="${esc(r.studentName||'기록')} 삭제">삭제</button></div></article>`;
 }
 function workspaceContent() {
   const records=filteredRecords();
@@ -261,13 +264,14 @@ function workspaceContent() {
   }
   return `${top}<p class="section-caption"><span>${records.length}건의 기록</span><span>눌러서 원문 확인·수정</span></p>${records.length?`<div class="record-list">${records.map(r=>recordCard(r)).join('')}</div>`:empty(state.search||state.filter!=='all'?'해당하는 기록이 없습니다.':'아직 기록이 없습니다.',state.search||state.filter!=='all'?'검색어나 필터를 바꿔 확인해 주세요.':'캡처를 올리거나 짧은 메모부터 남겨 보세요.',!state.search&&state.filter==='all')}<p class="helper-note">불일치 시 증빙서류 기준으로 수정 요망.</p>`;
 }
+function sendQueueRecords(records,date=state.queueDate){return state.neisPurpose==='report'?reportQueueRecords(records,date):queueDateRecords(records,date);}
 function queueContent(records) {
-  const unified=state.section==='attendance',visible=recordsForDateDisplay(records,state.queueDate);
-  const ready=queueDateRecords(records,state.queueDate);
-  const dateChoices=unified?displayQueueDates(records):queueDates(records);
-  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><div class="queue-date-list">${dateChoices.map(date=>`<button class="btn small ${state.queueDate===date?'primary':''}" data-queue-date="${date}">${date===today()?'오늘 · ':''}${date.slice(5).replace('-','/')} · ${(unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length}건</button>`).join('')}</div>`;
+  const reportMode=state.neisPurpose==='report',unified=state.section==='attendance',visible=recordsForDateDisplay(records,state.queueDate).filter(record=>!reportMode||reportQueueRecords([record],state.queueDate).length);
+  const ready=sendQueueRecords(records,state.queueDate);
+  const dateChoices=reportMode?displayQueueDates(reportQueueRecords(records)):unified?displayQueueDates(records):queueDates(records);
+  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary><div class="queue-date-list">${dateChoices.map(date=>`<button class="btn small ${state.queueDate===date?'primary':''}" data-queue-date="${date}">${date===today()?'오늘 · ':''}${date.slice(5).replace('-','/')} · ${(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length}건</button>`).join('')}</div></details>`;
   const blocked=records.filter(r=>!readiness(r).ready&&r.entryStatus!=='confirmed');
-  return `${dateControls}<div class="section-info"><strong>① 기록 선택 → ② 선택한 기록 보내기 → ③ 나이스 탭에서 입력·저장</strong><br>보내기 버튼은 설치한 나이스 도우미로 기록을 전달합니다. 나이스에서 학생·날짜를 열고 입력한 뒤 최종 저장하세요.</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}선택한 기록 보내기</button><small>설치한 나이스 도우미로 바로 전달</small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
+  return `<div class="neis-purpose-tools pc-tools" role="group" aria-label="나이스 작업 선택"><button type="button" class="btn small ${reportMode?'':'primary'}" data-neis-purpose="attendance" aria-pressed="${!reportMode}">일일출결 입력</button><button type="button" class="btn small ${reportMode?'primary':''}" data-neis-purpose="report" aria-pressed="${reportMode}">학부모 신고서 접수</button></div>${dateControls}<div class="section-info">${reportMode?'<strong>출결 입력을 완료한 기록도 신고서 접수용으로 다시 보낼 수 있습니다.</strong><br>보낸 뒤 도우미에서 ‘학부모 신고서 접수’를 선택하세요.':'<strong>① 기록 선택 → ② 선택한 기록 보내기 → ③ 나이스 탭에서 입력·저장</strong><br>보내기 버튼은 설치한 나이스 도우미로 기록을 전달합니다.'}</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}${reportMode?'선택한 기록 신고서 접수용으로 보내기':'선택한 기록 보내기'}</button><small>${reportMode?'도우미에서 학부모 신고서 접수 선택':'설치한 나이스 도우미로 바로 전달'}</small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified||reportMode?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
 }
 function renderWorkspace() {
   experienceGrid?.destroy(); experienceGrid = null;
@@ -301,6 +305,7 @@ function bindRecordDelete(root=document) {
   });
 }
 function bindWorkspace() {
+  document.querySelectorAll('[data-neis-purpose]').forEach(button=>button.onclick=()=>{state.neisPurpose=button.dataset.neisPurpose;state.filter='all';state.todayType='';state.selected.clear();render();});
   document.querySelectorAll('[data-fix]').forEach(b=>b.onclick=()=>afterGridSave(()=>{
    const r=state.records.find(x=>x.id===b.dataset.fix);if(!r)return;
    const action=nextAttendanceAction(r);
@@ -321,13 +326,13 @@ function bindWorkspace() {
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const record=state.records.find(r=>r.id===b.dataset.open);record?.passKind?openPass(record):openEditor(record);});
   document.querySelectorAll('[data-pass]').forEach(b=>b.onclick=()=>openPass(state.records.find(r=>r.id===b.dataset.pass)));
   document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>openEditor(state.records.find(r=>r.id===b.dataset.report),'report'));
-  document.querySelectorAll('[data-select]').forEach(input=>input.onchange=()=>{input.checked?state.selected.add(input.dataset.select):state.selected.delete(input.dataset.select);const all=document.querySelector('#select-all');if(all)all.checked=queueDateRecords(filteredRecords(),state.queueDate).every(r=>state.selected.has(r.id));updateNeisActions();});
+  document.querySelectorAll('[data-select]').forEach(input=>input.onchange=()=>{input.checked?state.selected.add(input.dataset.select):state.selected.delete(input.dataset.select);const all=document.querySelector('#select-all');if(all)all.checked=sendQueueRecords(filteredRecords(),state.queueDate).every(r=>state.selected.has(r.id));updateNeisActions();});
   document.querySelectorAll('[data-reset-neis]').forEach(b=>b.onclick=async()=>{const r=state.records.find(x=>x.id===b.dataset.resetNeis);if(!r)return;try{await persistRecord({...r,entryStatus:'pending',neisConfirmedDates:[]},r);render();toast('미입력으로 되돌렸습니다. 도우미로 다시 보내 주세요.');}catch(error){toast(error.message);}});
   document.querySelectorAll('[data-confirm]').forEach(b=>b.onclick=()=>confirmEntry(b.dataset.confirm));
   const chooseQueueDate=date=>{state.todayType='';state.queueDate=date;state.selected.clear();renderWorkspace();};
   document.querySelectorAll('[data-queue-date]').forEach(button=>button.onclick=()=>chooseQueueDate(button.dataset.queueDate));
   const dateInput=document.querySelector('#queue-date');if(dateInput)dateInput.onchange=()=>chooseQueueDate(dateInput.value);
-  const selectAll=document.querySelector('#select-all');if(selectAll)selectAll.onchange=()=>{queueDateRecords(filteredRecords(),state.queueDate).forEach(r=>selectAll.checked?state.selected.add(r.id):state.selected.delete(r.id));renderWorkspace();};
+  const selectAll=document.querySelector('#select-all');if(selectAll)selectAll.onchange=()=>{sendQueueRecords(filteredRecords(),state.queueDate).forEach(r=>selectAll.checked?state.selected.add(r.id):state.selected.delete(r.id));renderWorkspace();};
   for(const [id,format] of [['copy-rows','copy'],['export-csv','csv'],['export-json','json'],['send-neis-helper','helper']]){const button=document.getElementById(id);if(button)button.onclick=()=>exportSelected(format);}
   updateNeisActions();
 }
@@ -751,7 +756,7 @@ function showReportPicker() {
   draft=null;before=null;if(!dialog.open)dialog.showModal();
 }
 function selectedRecords() {
-  return queueDateRecords(state.records.filter(r=>state.selected.has(r.id)&&!(state.examError&&isExamRecord(r))),state.queueDate);
+  return sendQueueRecords(state.records.filter(r=>state.selected.has(r.id)&&!(state.examError&&isExamRecord(r))),state.queueDate);
 }
 function updateNeisActions() {
   const count=selectedRecords().length;
@@ -768,20 +773,20 @@ async function exportSelected(format) {
   try{
     const rows=toNeisRows(records);
     if(format==='helper'){
-      const payload={schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),rows};
+      const payload={schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),workMode:state.neisPurpose==='report'?'report':'attendance',rows};
       const result=await sendToNeisHelper(payload);
-      if(result.sent){records.forEach(r=>{const original=state.records.find(x=>x.id===r.id);if(original)sentSnapshots.set(r.id,clone(original));});showStatus(`${rows.length}건을 도우미로 보냈습니다. 나이스 입력·저장은 아직 완료되지 않았습니다.`);renderWorkspace();}
+      if(result.sent){if(state.neisPurpose!=='report')records.forEach(r=>{const original=state.records.find(x=>x.id===r.id);if(original)sentSnapshots.set(r.id,clone(original));});showStatus(state.neisPurpose==='report'?`${rows.length}건을 신고서 접수용으로 보냈습니다. 도우미에서 ‘학부모 신고서 접수’를 선택하세요. 출결 완료 상태는 유지됩니다.`:`${rows.length}건을 도우미로 보냈습니다. 나이스 입력·저장은 아직 완료되지 않았습니다.`);renderWorkspace();}
       else{showStatus('도우미와 연결되지 않았습니다. PC Chrome에서 도우미가 켜져 있는지 확인하고 기록함을 새로고침하세요. 파일로 옮기려면 아래 ‘다른 방법’을 펼치세요.');const other=document.querySelector('[data-neis-other]');if(other)other.open=true;}
     }else if(format==='copy'){
       const text=rows.map(r=>[`${r.studentId||`${r.classNumber}반 ${r.number}번`} ${r.studentName}`,r.date,[r.attendanceType,r.reasonType,r.periods].filter(Boolean).join(' · '),r.reason].filter(Boolean).join('\t')).join('\n');
       await navigator.clipboard.writeText(text);showStatus(`${records.length}건을 복사했습니다. 나이스의 해당 입력칸에 붙여 넣고 저장하세요.`);
     }else{
-      const content=format==='csv'?exportCsv(records):JSON.stringify({schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),rows},null,2);
+      const content=format==='csv'?exportCsv(records):JSON.stringify({schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),workMode:state.neisPurpose==='report'?'report':'attendance',rows},null,2);
       download(content,`나이스_입력대기_${today()}.${format}`,format==='csv'?'text/csv;charset=utf-8':'application/json');
       showStatus(format==='json'?'파일을 저장했습니다. 나이스 도우미 패널 맨 위 ‘나이스 입력용 JSON 열기’에서 이 파일을 선택하세요.':'엑셀로 확인할 CSV 파일을 저장했습니다. 나이스에 직접 업로드하는 파일은 아닙니다.');
     }
   }catch(error){showStatus(format==='copy'?'복사하지 못했습니다. 아래 파일 저장 방법을 이용해 주세요.':error.message);}
-  finally{if(format==='helper'&&button){delete button.dataset.sending;button.textContent='선택한 기록 보내기';updateNeisActions();}}
+  finally{if(format==='helper'&&button){delete button.dataset.sending;button.textContent=state.neisPurpose==='report'?'선택한 기록 신고서 접수용으로 보내기':'선택한 기록 보내기';updateNeisActions();}}
 }
 function download(content,name,mime) {
   const url=URL.createObjectURL(new Blob([content],{type:mime})),link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -846,5 +851,6 @@ window.addEventListener('focus',()=>syncNeisCompletions().finally(syncSharedNote
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNeisCompletions().finally(syncSharedNotebook);});
 setInterval(syncNeisCompletions,8000);
 setInterval(syncSharedNotebook,15000);
+
 
 

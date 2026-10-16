@@ -7,3 +7,10 @@
 .section-info .helper-release-highlight{display:block;margin:0;padding:6px 12px;border-radius:8px;background:#fff1df;color:#a84400;font-size:14px;line-height:1.6}
 
 @media(min-width:781px){.section-info .helper-download-row{flex-direction:row;align-items:center;gap:28px}.section-info .helper-release-highlight{flex:none;white-space:nowrap}}
+
+.neis-purpose-tools{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}.neis-purpose-tools .btn{min-height:44px;font-size:13px}
+
+.queue-date-history{margin:0 0 18px;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.queue-date-history>summary{cursor:pointer;font-size:12px;font-weight:650;color:var(--green)}
+.queue-date-history .queue-date-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;margin:14px 0 0;max-height:250px;overflow-y:auto;padding:2px}
+.queue-date-history .queue-date-list .btn{width:100%;margin:0}
