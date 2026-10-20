@@ -6,7 +6,8 @@
   const visible=node=>Boolean(node?.isConnected&&node.getClientRects().length)&&node.ownerDocument.defaultView.getComputedStyle(node).visibility!=='hidden';
   const enabled=node=>visible(node)&&!node.closest('[inert],[aria-disabled="true"],.cl-disabled');
   const buttons='[role="button"],button';
-  let running=false;
+  let running=false,cancelRequested=false;
+  function checkCancelled(){if(cancelRequested)throw new Error('사용자가 자동입력을 중단했습니다. 현재 학생은 미완료로 남겼습니다.');}
   function documents(d,result=[]) {result.push(d);for(const f of d.querySelectorAll('iframe,frame')){try{if(f.contentDocument)documents(f.contentDocument,result);}catch{}}return result;}
   function identity(row) {
     if(!/^[1-3]\d{4}$/.test(row?.studentId||'')||!clean(row.studentName))throw new Error('학번과 이름이 있는 출결 기록을 선택해 주세요.');
@@ -48,6 +49,7 @@
     const [year,month,day]=id.date.split('-').map(Number),target=year*12+month-1;
     if(Math.abs(target-current.month)>36)throw new Error('달력 이동 범위가 36개월을 넘습니다. 날짜를 직접 선택해 주세요.');
     while(current.month!==target) {
+      checkCancelled();
       const direction=target>current.month?1:-1,label=direction>0?'다음달':'이전달';
       const selector=direction>0?'.cl-calendar-header-next':'.cl-calendar-header-prev';
       const controls=[...current.root.querySelectorAll(selector)].filter(node=>enabled(node)&&node.getAttribute('role')==='button'&&node.getAttribute('aria-label')===label);
@@ -167,13 +169,13 @@
     const s=state(target);
     return !s.unknown&&expectedKind(row).includes(s.kind)&&s.reason===clean(row.reason)&&s.marks.length===plan.marks.length&&plan.marks.every(x=>s.marks.includes(x));
   }
-  async function waitFor(check,message) {const end=Date.now()+6000;while(Date.now()<end){if(check())return;await new Promise(resolve=>setTimeout(resolve,45));}throw new Error(message);}
+  async function waitFor(check,message) {const end=Date.now()+6000;while(Date.now()<end){checkCancelled();if(check())return;await new Promise(resolve=>setTimeout(resolve,45));}checkCancelled();throw new Error(message);}
   async function run(row,plan,autoSave=false) {
-    if(running)throw new Error('자동입력 중입니다.');running=true;
+    if(running)throw new Error('자동입력 중입니다.');running=true;cancelRequested=false;
     let stage='확인';
     try {
-      validatePlan(row,plan);
-      stage='날짜 선택';await selectDate(row);stage='확인';
+      checkCancelled();validatePlan(row,plan);
+      stage='날짜 선택';await selectDate(row);checkCancelled();stage='확인';
       const initial=locate(row), page=location.href;
       if(row.attendanceType==='조퇴'&&row.reasonType==='미인정'&&row.reason==='대입실기준비'){
         const periods=[...initial.map.keys()].filter(label=>/^[1-7]교시$/.test(label)&&enabled(initial.map.get(label))).sort((a,b)=>Number(a[0])-Number(b[0]));
@@ -194,7 +196,7 @@
       if(!popupApi?.fill||!popupApi?.findPopup)throw new Error('도우미를 업데이트한 뒤 나이스 탭을 새로고침해 주세요.');
       let popupOpen=false;try{popupApi.findPopup();popupOpen=true;}catch{}
       if(popupOpen)throw new Error('열린 출결 창을 닫고 출결표에서 자동입력을 다시 눌러 주세요.');
-      stage='학생 행 선택';
+      checkCancelled();stage='학생 행 선택';
       const nameCell=again().map.get('성명');const selector=nameCell.querySelector('.cl-control')||nameCell;
       if(!enabled(selector))throw new Error('학생 이름 칸을 선택할 수 없습니다.');
       const rect=selector.getBoundingClientRect(),view=selector.ownerDocument.defaultView;
@@ -206,13 +208,13 @@
       again();
       const cutoff=again().map.get('마감');const opener=cutoff.querySelector('.cl-control')||cutoff;
       if(!enabled(opener))throw new Error('마감 칸을 누를 수 없습니다.');
-      stage='마감 창 열기';opener.click();
+      checkCancelled();stage='마감 창 열기';opener.click();
       await waitFor(()=>{try{popupApi.findPopup();return true;}catch{return false;}},'마감 창이 열리지 않았습니다.');
       again();stage='종류·구분·사유 입력';
       await popupApi.fill({attendanceType:row.attendanceType,reasonType:row.reasonType,reason:row.reason},true);
       const popup=popupApi.findPopup();again();
       if(!enabled(popup.apply))throw new Error('적용 버튼을 누를 수 없습니다.');
-      stage='적용';popup.apply.click();
+      checkCancelled();stage='적용';popup.apply.click();
       await waitFor(()=>{const t=again();return expectedKind(row).includes(value(t.map.get('마감')))&&value(t.map.get('사유'))===clean(row.reason);},'적용 결과를 확인하지 못했습니다. 학생 행의 마감·사유를 확인해 주세요.');
       if(!completed(row,plan,again())&&plan.boundary) {
         const target=again().map.get(plan.boundary);const clickTarget=target.querySelector('.cl-text')||target.querySelector('.cl-control')||target;
@@ -228,7 +230,7 @@
         const successText=node=>/^(?:정상적으로)?저장(?:했습니다|되었습니다|하였습니다|완료되었습니다)[.!。]?$/.test(text(node));
         const visibleMessages=()=>[...currentTarget.d.querySelectorAll('*')].filter(node=>visible(node)&&successText(node));
         const previous=new Map(visibleMessages().map(node=>[node,text(node)]));
-        saveButtons[0].click();
+        checkCancelled();saveButtons[0].click();
         const end=Date.now()+10000;let acknowledged=false,confirmedSave=false;
         function saveConfirmation(noChanges=false,savedMessage=false,failedMessage=false){
           const prompts=[...currentTarget.d.querySelectorAll('*')].filter(node=>visible(node)&&(failedMessage?/^출결마감구분만존재하거나,?교시만체크되어있는학생이존재합니다[.]?확인후다시작업해주시기바랍니다[.]?$/.test(text(node)):savedMessage?successText(node):noChanges?/^변경된내용이없습니다[.!。]?$/.test(text(node)):text(node)==='저장하시겠습니까?'));
@@ -246,6 +248,7 @@
           return matches[0];
         }
         while(Date.now()<end){
+          checkCancelled();
           if(location.href!==page)throw new Error('저장 중 화면이 이동했습니다.');
           const failed=saveConfirmation(false,false,true);
           if(failed){failed.click();return {ok:true,saved:false,skipped:true,fields:[],message:'출결 마감 구분 또는 교시 표시가 불완전하여 저장되지 않았습니다.'};}
@@ -267,7 +270,9 @@
   }
   globalThis.__teacherNeisGrid={run,locate,validatePlan,selectDate,pickCalendarDate,openDateCalendar};
   chrome.runtime.onMessage.addListener((message,sender,respond)=>{
-    if(sender.id!==chrome.runtime.id||message?.type!=='TEACHER_NOTEBOOK_GRID'||message.command!=='fill')return false;
+    if(sender.id!==chrome.runtime.id||message?.type!=='TEACHER_NOTEBOOK_GRID')return false;
+    if(message.command==='cancel'){cancelRequested=true;respond({ok:true});return false;}
+    if(message.command!=='fill')return false;
     run(message.row,message.plan,Boolean(message.autoSave)).then(respond).catch(error=>respond({ok:false,error:error.message}));return true;
   });
 })();

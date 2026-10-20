@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "쉬운출결 개인용 → 나이스 도우미",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "학생·날짜를 대조해 나이스 출결 창과 기준 교시를 자동입력합니다. 최종 저장은 직접 확인합니다.",
   "minimum_chrome_version": "116",
   "permissions": [

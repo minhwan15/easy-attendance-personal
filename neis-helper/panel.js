@@ -4,7 +4,7 @@ import { reportPlan } from './report-plan.js';
 import { attendancePlan } from './attendance-plan.js';
 import { PANEL_MESSAGE } from './bridge-core.js';
 const $ = id => document.getElementById(id);
-let rows=[],progress={},current=0,busy=false,transferId='',queueChanges=0,workMode='attendance',retryRound=0;
+let rows=[],progress={},current=0,busy=false,stopRequested=false,transferId='',queueChanges=0,workMode='attendance',retryRound=0;
 const row=()=>rows[current];
 const completed=item=>verified(progress,item);
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
@@ -23,7 +23,7 @@ function renderList(){
  const text=document.createElement('span'),name=document.createElement('strong'),detail=document.createElement('small');
  name.textContent=`${item.studentId||`${item.classNumber}반 ${item.number}번`} ${item.studentName}`;
  detail.textContent=`${item.date} · ${item.reasonType} ${item.attendanceType}${item.periods?' · '+item.periods:''}`;
- text.append(name,detail);const state=document.createElement('span');state.className='student-state';state.textContent=workMode==='report'?(index===current?'신고서 선택됨':'신고서 선택'):completed(item)?(progress[item.queueId]?.manualConfirmed?'✓ 수기 완료':'✓ 완료'):progress[item.queueId]?.skipError?'미입력':index===current?'선택됨':'대기';
+ text.append(name,detail);const state=document.createElement('span');state.className='student-state';state.textContent=workMode==='report'?(index===current?'신고서 선택됨':'신고서 선택'):completed(item)?(progress[item.queueId]?.manualConfirmed?'✓ 수기 완료':'✓ 완료'):progress[item.queueId]?.skipError?(/저장|적용한 내용|일부 내용|중단|화면을 확인/.test(progress[item.queueId].skipError)?'확인 필요':'미입력'):index===current?'선택됨':'대기';
  const select=document.createElement('button');select.type='button';select.className='student-select';select.disabled=busy;select.setAttribute('aria-label',`${item.studentName} ${item.date} 자동입력할 기록 선택`);select.append(text,state);button.append(check,select);select.onclick=async()=>{if(busy)return;current=index;render();try{await persist();}catch(error){status(error.message,true);}};return button;
  }));list.scrollTop=top;
 }
@@ -35,6 +35,7 @@ async function markManualCompleted(item,checked){
  finally{busy=false;updateButtons();}
 }
 function updateButtons(){
+ $('stop-work').hidden=!busy||workMode==='report';$('stop-work').disabled=!busy||workMode==='report';
  $('retry-pending').hidden=workMode==='report'||!rows.some(item=>!completed(item));$('retry-pending').disabled=busy;
  for(const button of document.querySelectorAll('[data-work-mode]'))button.disabled=busy;
  let error='';try{if(row()){(workMode==='report'?reportPlan:attendancePlan)(row());if(!row().studentId)error='학생 학번을 확인해 주세요.';else if(!row().reason)error='앱에서 사유를 입력해 주세요.';}}catch(e){error=e.message;}
@@ -60,12 +61,13 @@ async function activeNeisTab() {
   return tab;
 }
 async function fillCurrentGrid(){
-  if(!row()||busy)return;
+  if(!row()||busy||stopRequested)return;
   const item=row(),activeTransfer=transferId;
   busy=true;updateButtons();$('grid-status').textContent='학생·날짜를 대조하고 입력 중…';
   try {
     const plan=attendancePlan(item),tab=await activeNeisTab();
     await chrome.scripting.executeScript({target:{tabId:tab.id},files:['popup.js','grid.js']});
+    if(stopRequested)throw new Error('중단 요청을 받았습니다. 현재 학생의 나이스 화면을 확인해 주세요.');
     const result=await chrome.tabs.sendMessage(tab.id,{type:'TEACHER_NOTEBOOK_GRID',command:'fill',row:item,plan,autoSave:true});
     if(!result?.ok)throw new Error(result?.error||'학생 행에 입력하지 못했습니다.');
     if(transferId!==activeTransfer||row()!==item)throw new Error('입력 대기가 변경되었습니다. 나이스의 학생과 값을 확인해 주세요.');
@@ -75,6 +77,16 @@ async function fillCurrentGrid(){
     if(result.saved===true||result.skipped===true){busy=false;await advanceAfterSave(activeTransfer);}
   }catch(error){
     $('grid-status').textContent=error.message;
+    if(stopRequested){
+      if(transferId===activeTransfer&&row()===item){
+        const previous=progress[item.queueId]||{fields:[],saved:false};
+        progress[item.queueId]={...previous,saved:false,autoVerified:false,skipError:'사용자가 중단했습니다. 나이스에 일부 내용이 입력되었을 수 있으니 화면을 확인하세요.'};
+        try{await persist();}catch(saveError){status('중단 상태 동기화 실패: '+saveError.message,true);}
+        updateProgress();
+      }
+      status('자동입력을 중단했습니다. 현재 학생은 완료 처리하지 않았습니다. 나이스 화면을 확인하세요.');
+      return;
+    }
     if(transferId===activeTransfer&&row()===item){
       progress[item.queueId]={fields:progress[item.queueId]?.fields||[],saved:false,autoVerified:false,skipError:error.message};
       try{await persist();}catch(saveError){status('미입력 목록 동기화 실패: '+saveError.message,true);}
@@ -91,9 +103,15 @@ async function fillReport(){
 }
 function setWorkMode(mode){workMode=mode==='report'?'report':'attendance';$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateProgress();updateButtons();}
 for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(!busy)setWorkMode(button.dataset.workMode);});
-$('grid-fill').addEventListener('click',()=>{retryRound=0;return workMode==='report'?fillReport():fillCurrentGrid();});
+$('grid-fill').addEventListener('click',()=>{stopRequested=false;retryRound=0;return workMode==='report'?fillReport():fillCurrentGrid();});
+$('stop-work').addEventListener('click',async()=>{
+ if(!busy||stopRequested)return;
+ stopRequested=true;$('stop-work').disabled=true;$('grid-status').textContent='중단 요청 중… 현재 진행 중인 작업을 멈추고 다음 학생은 처리하지 않습니다.';
+ try{const tab=await activeNeisTab();await chrome.tabs.sendMessage(tab.id,{type:'TEACHER_NOTEBOOK_GRID',command:'cancel'});}catch{}
+});
 async function advanceAfterSave(savedTransfer) {
   if(transferId!==savedTransfer)return;
+  if(stopRequested){updateProgress();status('자동입력을 중단했습니다. 완료된 기록은 유지하고 나머지는 대기 상태입니다.');return;}
     const next = rows.findIndex((item,index)=>index>current&&!completed(item)&&!progress[item.queueId]?.skipError);
     const pending = next >= 0 ? next : rows.findIndex(item=>!completed(item)&&!progress[item.queueId]?.skipError);
     if (pending >= 0) {
@@ -109,26 +127,13 @@ async function advanceAfterSave(savedTransfer) {
     }
   updateProgress();
   const failed=rows.filter(item=>!completed(item));
-  if(failed.length&&retryRound<2){
-    retryRound++;
-    busy=true;updateButtons();
-    status(`미입력 ${failed.length}건 자동 재시도 ${retryRound}/2 · 완료된 건은 제외합니다.`);
-    try{
-      await new Promise(resolve=>setTimeout(resolve,1200));
-      if(transferId!==savedTransfer)return;
-      progress=retryProgress(rows,progress);current=rows.findIndex(item=>!completed(item));
-      await persist();render();
-      status(`미입력 자동 재시도 ${retryRound}/2 진행 중…`);
-    }catch(error){status('재시도를 시작하지 못했습니다: '+error.message,true);return;}
-    finally{busy=false;updateButtons();}
-    if(transferId===savedTransfer)await fillCurrentGrid();
-    return;
-  }
-  status(failed.length?`자동 재시도 2회 종료 · 미입력 ${failed.length}건. 나이스 화면을 확인한 뒤 ‘미입력된 명단 일괄 재입력’을 눌러 주세요.`:'전체 저장 완료 · 앱 대기함에 반영됩니다.',failed.length>0);
+  // Do not automatically restart a failed queue: app sync may replace the transfer ID,
+  // resetting an in-memory retry counter and causing an endless retry cycle.
+  status(failed.length?`자동입력 종료 · 미입력 ${failed.length}건. 나이스 화면과 해당 학생의 저장 상태를 확인한 뒤 필요한 건만 직접 재입력해 주세요.`:'전체 저장 완료 · 앱 대기함에 반영됩니다.',failed.length>0);
 }
 $('retry-pending').addEventListener('click',async()=>{
   if(busy||workMode!=='attendance')return;
-  retryRound=0;
+  stopRequested=false;retryRound=0;
   const first=rows.findIndex(item=>!completed(item));if(first<0)return;
   const activeTransfer=transferId,previous=progress;busy=true;updateButtons();
   try{progress=retryProgress(rows,progress);current=first;await persist();render();busy=false;if(transferId===activeTransfer)await fillCurrentGrid();}
