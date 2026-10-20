@@ -39,3 +39,10 @@ test('NEIS 명렬표 CSV with title rows and number/name/gender columns', () => 
   assert.deepEqual(result.students.map(s => [s.studentId, s.studentName]), [['30801', '김가가'], ['30802', '이나나']]);
   assert.deepEqual(result.unparsedLines, []);
 });
+
+test('NEIS 명렬표 HTML-table .xls converts to rows the roster parser reads', async () => {
+  const { rosterTextFromSpreadsheet } = await import('../public/src/notebook-roster-file.js');
+  const html = '<table><tr><td colspan="3">2026학년도 3학년 8반 명렬표</td></tr><tr><th>번호</th><th>성명</th><th>성별</th></tr><tr><td>1</td><td>김가가</td><td>남</td></tr></table>';
+  const text = await rosterTextFromSpreadsheet(new TextEncoder().encode(html).buffer);
+  assert.deepEqual(parseRosterText(text).students.map(s => s.studentId), ['30801']);
+});
