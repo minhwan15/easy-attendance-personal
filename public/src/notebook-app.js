@@ -405,7 +405,9 @@ function openEditor(record,sourceType) {
   if(!record)return;
   if(uploadController)uploadController.abort();
   before=state.records.find(r=>r.id===record.id)?clone(record):null;
-  draft={...emptyRecord(),...clone(record)};editorWarnings=[];conversationCandidates=[];selectedCandidateId='';manualIdentity=studentIdentity(draft);
+  draft={...emptyRecord(),...clone(record)};
+  if(draft.attendanceType==='결석') { const lessons=schoolPeriodsForDate(draft.startDate,draft.lessonCount); draft.periods=lessons.length?formatSchoolPeriods(lessons.map(item=>item.period)):''; }
+  editorWarnings=[];conversationCandidates=[];selectedCandidateId='';manualIdentity=studentIdentity(draft);
   if(sourceType)draft.sourceType=sourceType;
   periodEntry={mode:'manual',arrivalTime:''};
   renderEditor();if(!dialog.open)dialog.showModal();
@@ -426,13 +428,13 @@ function renderEditor() {
 }
 function periodSelectionHtml() {
   const type=draft.attendanceType;
-  if(!['지각','조퇴','결과'].includes(type))return '';
+  if(!['결석','지각','조퇴','결과'].includes(type))return '';
   const lessons=schoolPeriodsForDate(draft.startDate,draft.lessonCount),parsed=parsePeriods(withAttendanceMeetings(draft.periods,draft.attendanceType,{date:draft.startDate,lessonCount:draft.lessonCount})||'');
   const selected=new Set(parsed.valid?parsed.periods:[]);
   const meeting=type==='지각'?'조회':type==='조퇴'?'종례':'';
-  const values=[...(type!=='조퇴'?['조회']:[]),...lessons.map(item=>item.period),...(type!=='지각'?['종례']:[])];
-  const help=type==='지각'?'빠진 마지막 교시를 누르면 조회부터 선택됩니다.':type==='조퇴'?'빠지기 시작한 교시를 누르면 종례까지 선택됩니다.':'빠진 시간을 선택하세요.';
-  return `<div class="period-picker"><div class="period-chips" role="group" aria-label="빠진 시간 선택">${values.map(value=>`<label class="period-chip"><input type="checkbox" data-missed-period="${value}" ${selected.has(value)?'checked':''} ${!lessons.length||(value===meeting&&selected.has(value))?'disabled':''}><span>${Number.isInteger(value)?`${value}교시`:value}</span></label>`).join('')}</div><p>${lessons.length?help:'날짜를 먼저 선택해 주세요.'}</p><small>${lessons.length}교시 수업 · 시간표 변경 시 위에서 6·7교시 선택${meeting?` · ${meeting} 포함`:''}</small>${type==='지각'?`<div class="period-arrival"><label for="period-arrival-time">도착 시각</label><input id="period-arrival-time" type="time" value="${esc(periodEntry.arrivalTime)}" aria-describedby="period-arrival-hint"><small id="period-arrival-hint">시각을 넣으면 자동 선택</small></div>`:''}</div>`;
+  const values=type==='결석'?lessons.map(item=>item.period):[...(type!=='조퇴'?['조회']:[]),...lessons.map(item=>item.period),...(type!=='지각'?['종례']:[])];
+  const help=type==='결석'?'결석은 해당 날짜의 수업 교시 전체가 자동 선택됩니다.':type==='지각'?'빠진 마지막 교시를 누르면 조회부터 선택됩니다.':type==='조퇴'?'빠지기 시작한 교시를 누르면 종례까지 선택됩니다.':'빠진 시간을 선택하세요.';
+  return `<div class="period-picker"><div class="period-chips" role="group" aria-label="빠진 시간 선택">${values.map(value=>`<label class="period-chip"><input type="checkbox" data-missed-period="${value}" ${selected.has(value)?'checked':''} ${!lessons.length||type==='결석'||(value===meeting&&selected.has(value))?'disabled':''}><span>${Number.isInteger(value)?`${value}교시`:value}</span></label>`).join('')}</div><p>${lessons.length?help:(type==='결석'?'학교별 시간표를 설정하면 전체 교시가 자동으로 표시됩니다.':'날짜를 먼저 선택해 주세요.')}</p><small>${lessons.length}교시 수업 · 시간표 변경 시 위에서 6·7교시 선택${meeting?` · ${meeting} 포함`:''}</small>${type==='지각'?`<div class="period-arrival"><label for="period-arrival-time">도착 시각</label><input id="period-arrival-time" type="time" value="${esc(periodEntry.arrivalTime)}" aria-describedby="period-arrival-hint"><small id="period-arrival-hint">시각을 넣으면 자동 선택</small></div>`:''}</div>`;
 }
 function refreshPeriodSelector() {
   const box=document.querySelector('#period-selector');if(!box)return;
@@ -451,6 +453,10 @@ function selectPeriodEndpoint(endpoint,type=draft.attendanceType) {
   return '';
 }
 function updatePeriodsForDateOrType(reason='date') {
+  if(draft.attendanceType==='결석'){
+    const lessons=schoolPeriodsForDate(draft.startDate,draft.lessonCount);
+    setSelectedPeriods(lessons.length?formatSchoolPeriods(lessons.map(item=>item.period)):'','automatic-absence');return;
+  }
   if(!['지각','조퇴','결과'].includes(draft.attendanceType)){refreshPeriodSelector();return;}
   if(reason==='date'&&periodEntry.mode==='manual'){refreshPeriodSelector();return;}
   if(periodEntry.mode==='time'&&draft.attendanceType==='지각'&&periodEntry.arrivalTime) {
