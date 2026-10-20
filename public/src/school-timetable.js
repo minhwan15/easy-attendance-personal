@@ -19,7 +19,7 @@ export function schoolPeriodsForDate(date, lessonCount = 0) {
   const parsed=new Date(`${date}T00:00:00Z`);
   if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return [];
   const weekday=parsed.getUTCDay(),settings=globalThis.easyProfile?.timetable;
-  const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):settings?.counts?.[weekday]??(weekday===1||weekday===5?7:weekday>=2&&weekday<=4?6:0);
+  const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):settings?.counts?.[weekday]??0;
   return (settings?.periods||SCHOOL_PERIODS).slice(0,count).map((x,i)=>({...x,period:i+1}));
 }
 
