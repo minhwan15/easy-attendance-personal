@@ -13,6 +13,8 @@ import { todaySeoul } from './model.js';
 import { schoolPeriodsForDate, formatSchoolPeriods, missedPeriods } from './school-timetable.js';
 import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
+import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
+import { openSettings } from './notebook-settings-ui.js';
 import { openPassEditor } from './notebook-pass-ui.js';
 import { PASS_LABELS } from './notebook-pass-model.js';
 import { academicYear } from './notebook-experience-usage.js';
@@ -115,7 +117,7 @@ function knownStudents() {
 function rememberedClassId() { try { const value=localStorage.getItem('homeroom-class-id')||'';return /^[123]\d{2}$/.test(value)&&!value.endsWith('00')?value:''; } catch { return ''; } }
 function profileLabel() { const username=String(state.user?.username||'');return /^[123]\d{2}$/.test(username)?`${state.user.displayName||'담임'}`:`${state.user?.displayName||username} 선생님`; }
 function header() {
- return `<header class="site-header"><div class="header-inner"><a class="brand" href="/notebook.html"><span class="personal-brand-mark" aria-hidden="true"><img src="/favicon.svg" alt="" width="52" height="52"></span><span class="personal-brand-copy"><span class="brand-kicker">EASY ATTENDANCE</span><span class="brand-title">쉬운출결<span class="brand-edition">PERSONAL</span></span><span class="brand-sub">${esc(state.profile?.schoolName||'담임 개인용')}${state.profile?` · ${state.profile.grade}학년 ${state.profile.classNumber}반`:''}</span></span></a><div class="header-actions"><button class="btn small" id="go-home">홈으로</button>${state.user?`<button class="text-btn roster-btn" id="open-roster">명렬표 ${state.students.length}명</button><button class="btn small personal-setup-btn" id="personal-settings">내 기기 연결 · 설정</button><button class="text-btn" id="logout">이 기기 연결 해제</button>`:''}</div></div></header>`;
+ return `<header class="site-header"><div class="header-inner"><a class="brand" href="/notebook.html"><span class="personal-brand-mark" aria-hidden="true"><img src="/favicon.svg" alt="" width="52" height="52"></span><span class="personal-brand-copy"><span class="brand-kicker">EASY ATTENDANCE</span><span class="brand-title">쉬운출결<span class="brand-edition">PERSONAL</span></span><span class="brand-sub">${esc(state.profile?.schoolName||'담임 개인용')}${state.profile?` · ${state.profile.grade}학년 ${state.profile.classNumber}반`:''}</span></span></a><div class="header-actions"><button class="btn small" id="go-home">홈으로</button>${state.user?`<button class="text-btn roster-btn" id="open-roster">명렬표 ${state.students.length}명</button><button class="text-btn roster-btn" id="open-settings" type="button">경고 문구</button><button class="btn small personal-setup-btn" id="personal-settings">내 기기 연결 · 설정</button><button class="text-btn" id="logout">이 기기 연결 해제</button>`:''}</div></div></header>`;
 }
 function renderAuth(){renderPersonalAuth({app,header:header(),error:state.error,onConnected:result=>{accept(result);state.error='';render();}});}
 function counts() {
@@ -153,6 +155,7 @@ function bindShell(){
   }));
   document.querySelector('#go-home')?.addEventListener('click',()=>changeSection('home'));
   document.querySelector('#open-roster')?.addEventListener('click',()=>afterGridSave(openRoster));
+  document.querySelector('#open-settings')?.addEventListener('click',()=>afterGridSave(openClassSettings));
   document.querySelector('#logout')?.addEventListener('click',async()=>{if(!await saveGridBeforeLeaving())return;if(!confirm('이 기기의 연결을 해제할까요? 다른 기기 또는 복구 코드로 다시 연결할 수 있습니다.'))return;if(demo){location.href='/notebook.html';return;}try{await api({action:'logout'},'POST');accept({authenticated:false});state.section='home';render();}catch(error){toast(error.message);}});
 }
 function wasSent(record){
@@ -767,7 +770,22 @@ async function saveEditor(event) {
     dialog.close();draft=null;before=null;state.error='';render();toast(demo?'예시 기록을 이 화면에 반영했습니다.':'기록을 저장했습니다.');
   }catch(error){errorBox.textContent=error.status===409?'다른 기기에서 이 기록이 변경되었습니다. 입력한 내용은 유지했습니다. 내용을 복사해 두고 닫은 뒤 최신 기록을 불러와 다시 수정해 주세요.':error.message;button.disabled=false;button.innerHTML=`${icon('check')}기록 저장`;errorBox.scrollIntoView({block:'center'});}
 }
+function openClassSettings(){
+  openSettings({settings:state.experienceSettings,demo,notify:toast,weekday:false,
+    save:async(settings,beforeSettings)=>{
+      if(demo){state.experienceSettings=normalizeExperienceSettings(settings);return;}
+      accept(await api({action:'save-experience-settings',settings,beforeSettings},'POST'));
+    },
+    onSaved:()=>{if(!morningView?.hasPendingChanges()&&!experienceGrid?.hasPendingChanges())render();}});
+}
+/** 같은 학생·같은 달 반복 사유(교사가 등록한 문구)는 저장 전에 확인합니다. */
+function confirmRepeatReason(record,previous){
+  if(record.category!=='attendance'||!needsRepeatCheck(record,previous))return;
+  const warnings=findRepeatWarnings({record,records:state.records,phrases:warningPhrasesFor(state.experienceSettings)});
+  if(warnings.length&&!confirm(repeatWarningMessage(record,warnings)))throw new Error('같은 달 반복 사유 확인으로 저장을 취소했습니다. 출결 구분을 확인한 뒤 다시 저장해 주세요.');
+}
 async function persistRecord(record,previous) {
+  confirmRepeatReason(record,previous);
   if(isExamRecord(record))previous=savedRecords.find(r=>r.id===record.id)||null;
   recordWrites++;
   try {

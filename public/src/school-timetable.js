@@ -64,3 +64,12 @@ export function seoulNow(date=new Date()) {
   }).formatToParts(instant).map(part=>[part.type,part.value]));
   return {date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}`};
 }
+
+/** 배포용은 ‘내 출결함 설정’의 시간표를 사용합니다. 아래 값은 공용 설정 창과 호환하기 위한 참고값입니다. */
+export const DEFAULT_WEEKDAY_LESSONS = Object.freeze({1:7,2:6,3:6,4:6,5:7});
+export const WEEKDAY_LESSON_MIN = 4, WEEKDAY_LESSON_MAX = 8;
+export function weekdayLessonsLabel(map = DEFAULT_WEEKDAY_LESSONS) {
+  const groups=new Map();
+  for(const day of [1,2,3,4,5]){const count=map[day];groups.set(count,[...(groups.get(count)||[]),'월화수목금'[day-1]]);}
+  return [...groups].map(([count,days])=>`${days.join('·')} ${count}교시`).join(' / ');
+}

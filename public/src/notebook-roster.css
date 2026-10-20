@@ -2,3 +2,4 @@
 
 
 .roster-options{margin:16px 0;color:var(--muted);font-size:13px}.roster-options summary{cursor:pointer}.roster-options .roster-defaults{margin-top:12px}
+.neis-roster-guide{margin:14px 0 4px;padding:13px 15px;border:1px solid #cfe0d3;border-radius:11px;background:#f4f8f2;font-size:12px;line-height:1.8;color:#4d6056}.neis-roster-guide summary{cursor:pointer;font-weight:750;color:var(--green)}.neis-roster-guide ol{margin:8px 0 6px;padding-left:19px}.neis-roster-guide b{color:var(--ink)}.neis-roster-guide p{font-size:11px;color:var(--muted)}

@@ -6,7 +6,8 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const clone = value => JSON.parse(JSON.stringify(value));
 
 /** Private roster editor. Imports remain editable until the teacher saves. */
-export function openRosterManager({ students = [], save, onSaved, onClosed, accountId = '', loadLatest, demo = false }) {
+export function openRosterManager({ students = [], save, onSaved, onClosed, accountId = '', classId = '', loadLatest, demo = false }) {
+  const classHint = /^([1-3])(\d{2})$/.exec(String(classId || accountId || '')), hintGrade = classHint ? classHint[1] : '', hintClass = classHint && Number(classHint[2]) ? String(Number(classHint[2])) : '';
   students=[...students].sort((a,b)=>a.studentId.localeCompare(b.studentId));
   let original = clone(students);
   let rows = clone(students), controller = null, busy = false, warnings = [], importWarnings = [], omitted = [];
@@ -16,8 +17,9 @@ export function openRosterManager({ students = [], save, onSaved, onClosed, acco
   dialog.innerHTML = `<div class="dialog-head"><div><h2 id="roster-title">우리 반 명렬표</h2><p>등록한 이름·학번으로 캡처의 학생을 대조합니다.</p></div><button type="button" class="icon-btn" id="roster-close" aria-label="명렬표 닫기">×</button></div>
     <div class="roster-body"><div class="roster-actions"><strong id="roster-server-status"></strong>${!demo&&loadLatest?'<button type="button" class="btn small" id="roster-reload">서버 명렬표 다시 불러오기</button>':''}</div><div class="section-info">명렬표를 올리면 학생 목록으로 정리합니다. 틀린 곳만 고치고 저장하세요.</div>
     <div class="roster-actions"><button type="button" class="btn" id="roster-template">CSV 양식 다운로드</button><button type="button" class="btn primary" id="roster-upload">명렬표 파일·캡처 올리기</button><input id="roster-files" type="file" accept=".csv,.tsv,.txt,image/jpeg,image/png,image/webp,application/pdf" multiple hidden></div>
-    <p class="helper-note">CSV·사진·PDF를 지원합니다. 엑셀 표는 복사해 붙여넣어도 됩니다.</p>
-    <details class="roster-options"><summary>번호만 있는 자료 · 전체 교체</summary><div class="form-grid three roster-defaults"><div class="field"><label for="roster-grade">학년이 생략된 자료의 학년</label><select id="roster-grade"><option value="">직접 선택</option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div><div class="field"><label for="roster-class">반이 생략된 자료의 반</label><input id="roster-class" type="number" min="1" max="99" placeholder="예: 8"></div><div class="field"><label for="roster-mode">불러오기 방식</label><select id="roster-mode"><option value="merge">기존 명렬표에 추가·수정</option><option value="replace">불러온 명렬표로 교체</option></select></div></div></details>
+    <details class="neis-roster-guide" open><summary>나이스 명렬표 파일로 한 번에 등록</summary><ol><li>나이스 → <b>[학적]</b> → <b>[기본학적관리]</b> → <b>[명렬표출력]</b></li><li>학년·반을 고르고 <b>조회</b> → <b>명렬표 내용 선택</b>에서 필요한 항목(번호·성명, 필요하면 학번) 선택 → 엑셀 파일 다운로드</li><li>엑셀에서 <b>다른 이름으로 저장</b> → 파일 형식 <b>CSV UTF-8(쉼표로 분리)</b>로 저장</li><li>위 <b>명렬표 파일·캡처 올리기</b>로 CSV를 선택 → 목록 확인 후 저장</li></ol><p>번호·성명만 있어도 됩니다. 제목 줄의 학년·반 또는 이 반 계정(${esc(hintGrade&&hintClass?`${hintGrade}학년 ${hintClass}반`:'아래 설정')})으로 학번을 만듭니다. 엑셀 표를 복사해 아래 칸에 붙여넣어도 됩니다.</p></details>
+    <p class="helper-note">CSV·사진·PDF를 지원합니다.</p>
+    <details class="roster-options"><summary>번호만 있는 자료 · 전체 교체</summary><div class="form-grid three roster-defaults"><div class="field"><label for="roster-grade">학년이 생략된 자료의 학년</label><select id="roster-grade"><option value="">직접 선택</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div><div class="field"><label for="roster-class">반이 생략된 자료의 반</label><input id="roster-class" type="number" min="1" max="99" placeholder="예: 8"></div><div class="field"><label for="roster-mode">불러오기 방식</label><select id="roster-mode"><option value="merge">기존 명렬표에 추가·수정</option><option value="replace">불러온 명렬표로 교체</option></select></div></div></details>
     <div class="field"><label for="roster-text">명렬표 붙여넣기 · 캡처에서 읽은 내용</label><textarea id="roster-text" rows="5" placeholder="학번,이름&#10;30801,김예시&#10;30802,이예시"></textarea><small>학번과 이름만 입력하세요. 학년·반·번호는 학번에서 자동으로 처리합니다.</small></div>
     <div class="roster-actions"><button type="button" class="btn soft" id="roster-parse">명렬표 내용 정리</button><span id="roster-progress" role="status"></span><button type="button" class="text-btn" id="roster-cancel-ocr" hidden>글자 읽기 중단</button></div>
     <div id="roster-warnings" aria-live="polite"></div>
@@ -28,6 +30,7 @@ export function openRosterManager({ students = [], save, onSaved, onClosed, acco
     <div class="dialog-footer"><span class="save-state">${demo ? '예시 모드 · 서버 저장 없음' : '내 출결함에 저장 · 연결한 폰·PC에서 사용'}</span><button type="button" class="btn" id="roster-cancel">취소</button><button type="button" class="btn primary" id="roster-save">명렬표 저장</button></div>`;
   document.body.append(dialog);
   const el = id => dialog.querySelector(`#${id}`);
+  if (hintGrade && hintClass) { el('roster-grade').value = hintGrade; el('roster-class').value = hintClass; }
   if(globalThis.easyProfile){el('roster-grade').value=globalThis.easyProfile.grade;el('roster-class').value=globalThis.easyProfile.classNumber;}
   function setBusy(value) {
     busy = value;

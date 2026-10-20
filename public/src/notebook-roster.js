@@ -175,6 +175,21 @@ function parseWithoutHeader(row, defaults, delimiter) {
   throw new Error('학번·이름 또는 학년·반·번호·이름 형식으로 읽을 수 없습니다.');
 }
 
+function detectTitleClass(rows) {
+  let found = null;
+  // 머리글(번호·성명 등) 위의 제목 줄에서만 읽습니다. 머리글이 없으면 학생 행일 수 있으므로 쓰지 않습니다.
+  for (const row of rows.slice(0, 8)) {
+    let header = null;
+    try { header = headerFor(row.cells); } catch { return null; }
+    if (header) return found;
+    if (found || /\d\s*번/.test(row.raw)) continue;
+    const text = row.raw.replace(/[",]/g, ' ');
+    const match = text.match(/([1-3])\s*학년\s*(\d{1,2})\s*반/) || text.match(/학년\s*[:：]?\s*([1-3])(?!\d)[^\n]*?반\s*[:：]?\s*(\d{1,2})(?!\d)/);
+    if (match && Number(match[2]) >= 1) found = { grade: Number(match[1]), classNumber: Number(match[2]) };
+  }
+  return null;
+}
+
 /** Conservative text/CSV/OCR import. Uncertain rows are reported, never silently filled. */
 export function parseRosterText(text, { defaultGrade, defaultClass } = {}) {
   if (typeof text !== 'string') throw new Error('명단 내용을 글자로 넣어 주세요.');
@@ -188,14 +203,25 @@ export function parseRosterText(text, { defaultGrade, defaultClass } = {}) {
   if (!text.trim()) return { students: [], warnings: ['정리할 명단 내용을 입력해 주세요.'], unparsedLines: [] };
   const delimiter = delimiterFor(text);
   const rows = delimiter ? delimitedRows(text, delimiter) : textRows(text);
+  // 나이스 명렬표 CSV: 제목 줄의 "3학년 8반" 또는 "학년: 3 반: 8"을 번호만 있는 행의 학년·반으로 사용합니다.
+  const titleClass = detectTitleClass(rows);
+  if (titleClass && (!defaults.grade || !defaults.classNumber)) {
+    defaults.grade ??= titleClass.grade; defaults.classNumber ??= titleClass.classNumber;
+    warnings.push(`명렬표 제목에서 ${defaults.grade}학년 ${defaults.classNumber}반을 읽었습니다. 학번을 확인해 주세요.`);
+  }
   let header = null;
-  const reject = (row, message) => { warnings.push(`${row.line}행: ${message}`); unparsed.set(row.line, row.raw); };
+  const beforeHeader = [];
+  const reject = (row, message) => {
+    if (!header) { beforeHeader.push([row, message]); return; }
+    warnings.push(`${row.line}행: ${message}`); unparsed.set(row.line, row.raw);
+  };
   for (const row of rows) {
     if (!row.raw.trim()) continue;
     try {
       if (row.error) throw new Error(row.error);
       const detected = headerFor(row.cells);
-      if (detected) { header = detected; continue; }
+      // 머리글 위의 제목·안내 줄은 학생 행이 아니므로 경고하지 않습니다.
+      if (detected) { header = detected; beforeHeader.length = 0; continue; }
       let student;
       if (header) {
         let cells = row.cells;
@@ -220,6 +246,7 @@ export function parseRosterText(text, { defaultGrade, defaultClass } = {}) {
       accepted.set(student.studentId, student);
     } catch (error) { reject(row, error.message); }
   }
+  for (const [row, message] of beforeHeader) { warnings.push(`${row.line}행: ${message}`); unparsed.set(row.line, row.raw); }
   const students = normalizeRoster([...accepted.values()]);
   if (!students.length && !warnings.length) warnings.push('머리글만 있습니다. 학생 정보를 추가해 주세요.');
   return { students, warnings, unparsedLines: [...unparsed.entries()].sort((a, b) => a[0] - b[0]).map(([, raw]) => raw) };
