@@ -1,14 +1,7 @@
-/** 내 출결함의 학교 시간표를 사용합니다. 설정 전 기본값은 각 교시 50분입니다. */
-export const SCHOOL_PERIODS = Object.freeze([
-  {period:1,start:'09:10',end:'10:00'},
-  {period:2,start:'10:10',end:'11:00'},
-  {period:3,start:'11:10',end:'12:00'},
-  {period:4,start:'12:10',end:'13:00'},
-  {period:5,start:'13:50',end:'14:40'},
-  {period:6,start:'14:50',end:'15:40'},
-  {period:7,start:'15:50',end:'16:40'},
-  {period:8,start:'16:50',end:'17:40'},
-].map(Object.freeze));
+/** 학교별로 저장한 시간표만 사용합니다. 시간표 설정 전에는 자동 교시 계산을 하지 않습니다. */
+export const SCHOOL_PERIODS = Object.freeze(
+  Array.from({length:8},(_,i)=>Object.freeze({period:i+1,start:'',end:''}))
+);
 
 const minuteOfDay = value => typeof value==='string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)
   ? Number(value.slice(0,2))*60+Number(value.slice(3)) : null;
@@ -19,8 +12,13 @@ export function schoolPeriodsForDate(date, lessonCount = 0) {
   const parsed=new Date(`${date}T00:00:00Z`);
   if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return [];
   const weekday=parsed.getUTCDay(),settings=globalThis.easyProfile?.timetable;
-  const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):settings?.counts?.[weekday]??(weekday===1||weekday===5?7:weekday>=2&&weekday<=4?6:0);
-  return (settings?.periods||SCHOOL_PERIODS).slice(0,count).map((x,i)=>({...x,period:i+1}));
+  if(!settings || !Array.isArray(settings.counts) || !Array.isArray(settings.periods))return [];
+  const configuredCount=Number(settings.counts[weekday])||0;
+  const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):configuredCount;
+  if(count<1)return [];
+  const periods=settings.periods.slice(0,count).map((x,i)=>({...x,period:i+1}));
+  if(periods.length!==count || periods.some(x=>minuteOfDay(x.start)===null||minuteOfDay(x.end)===null||minuteOfDay(x.end)<=minuteOfDay(x.start)))return [];
+  return periods;
 }
 
 export function formatSchoolPeriods(periods) {
