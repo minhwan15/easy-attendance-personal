@@ -489,8 +489,6 @@ function contentErrors(record) {
         const periods=parsePeriods(record.periods,{date,lessonCount:record.lessonCount});
         if (!periods.valid) errors.push(periods.error);
       }
-    } else if (record.periods) {
-      errors.push('결석은 하루 전체 출결입니다. 교시를 비우거나 해당하는 출결 구분을 선택해 주세요.');
     }
     if ((record.startDate!==record.endDate || record.category==='experience') && !record.attendanceDates.length) errors.push('기간 전체가 아닌, 실제 나이스에 입력할 출결 날짜를 선택해 주세요.');
   } else if (record.startDate!==record.endDate) errors.push('상담·활동 기록은 실제 기록일 하나를 선택해 주세요.');
@@ -545,8 +543,9 @@ export function toNeisRows(records) {
     const dates=['attendance','experience'].includes(record.category) && record.attendanceDates.length ? record.attendanceDates : [record.startDate];
     for (const date of dates) {
       if(record.neisConfirmedDates.includes(date))continue;
+      const absencePeriods=record.attendanceType==='결석'?formatSchoolPeriods(schoolPeriodsForDate(date,record.lessonCount).map(period=>period.period)):'';
       const row={recordId:record.id,category:record.category,studentId:record.studentId,studentName:record.studentName,classNumber:record.classNumber,number:record.number,date,
-        attendanceType:record.attendanceType,reasonType:record.reasonType,periods:withAttendanceMeetings(record.periods,record.attendanceType,{date,lessonCount:record.lessonCount}),reason:record.reason,lessonCount:record.lessonCount||schoolPeriodsForDate(date).length};
+        attendanceType:record.attendanceType,reasonType:record.reasonType,periods:record.attendanceType==='결석'?(absencePeriods||record.periods):withAttendanceMeetings(record.periods,record.attendanceType,{date,lessonCount:record.lessonCount}),reason:record.reason,lessonCount:record.lessonCount||schoolPeriodsForDate(date).length};
       const key=JSON.stringify([row.category,row.studentId,row.studentName,row.date,row.attendanceType,row.reasonType,row.periods,row.reason]);
       if (seen.has(key)) continue;
       if (['attendance','experience'].includes(row.category)) {
