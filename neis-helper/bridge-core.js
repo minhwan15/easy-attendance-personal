@@ -1,6 +1,6 @@
 import { parseQueue } from './core.js';
 
-export const NOTEBOOK_ORIGIN = "https://easy-attendance-personal.vercel.app";
+export const NOTEBOOK_ORIGIN = 'https://easy-attendance-personal.vercel.app';
 export const APP_MESSAGE = 'TEACHER_NOTEBOOK_APP_BRIDGE';
 export const PANEL_MESSAGE = 'TEACHER_NOTEBOOK_PANEL_STATE';
 export const queueWorkMode = payload => payload?.workMode==='report'?'report':'attendance';

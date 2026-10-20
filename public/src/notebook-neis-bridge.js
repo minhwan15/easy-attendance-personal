@@ -1,5 +1,5 @@
 import { prepareNeisTransfer } from './notebook-neis-preflight.js';
-const NOTEBOOK_ORIGIN = 'https://easy-attendance-personal.minhwan15370665.chatgpt.site';
+const NOTEBOOK_ORIGIN = 'https://easy-attendance-personal.vercel.app';
 const REQUEST_TYPE = 'TEACHER_NOTEBOOK_APP_BRIDGE';
 const RESPONSE_TYPE = 'TEACHER_NOTEBOOK_EXTENSION_BRIDGE';
 

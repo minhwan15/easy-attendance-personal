@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 let origin=process.env.APP_ORIGIN;
 if(!origin&&process.env.VERCEL_PROJECT_PRODUCTION_URL)origin='https://'+process.env.VERCEL_PROJECT_PRODUCTION_URL;
 if(origin){const u=new URL(origin);if(u.protocol!=='https:'||u.pathname!=='/'||u.search||u.hash)throw new Error('APP_ORIGIN은 https://앱주소 형식이어야 합니다.');origin=u.origin;
- for(const file of ['public/src/notebook-neis-bridge.js','neis-helper/notebook-bridge.js','neis-helper/bridge-core.js']){let t=await readFile(file,'utf8');t=t.replace(/((?:const NOTEBOOK_ORIGIN|const origin)\s*=\s*)'[^']+'/g,(_,prefix)=>prefix+JSON.stringify(origin));await writeFile(file,t);}
+ for(const file of ['public/src/notebook-neis-bridge.js','neis-helper/notebook-bridge.js','neis-helper/bridge-core.js']){let t=await readFile(file,'utf8');t=t.replace(/((?:const NOTEBOOK_ORIGIN|const origin)\s*=\s*)(['"])[^'"]+\2/g,(_,prefix,q)=>prefix+q+origin+q);await writeFile(file,t);}
  const m=JSON.parse(await readFile('neis-helper/manifest.json','utf8'));m.content_scripts[0].matches=[origin+'/*'];await writeFile('neis-helper/manifest.json',JSON.stringify(m,null,2));
 }else console.warn('배포 후 APP_ORIGIN에 최종 앱 주소를 설정하고 다시 배포하세요.');
 // Align the visible download version with this personal helper package.

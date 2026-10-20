@@ -1,6 +1,6 @@
 // Isolated content script: only the exact production notebook origin can send a queue.
 (() => {
-  const origin = 'https://easy-attendance-personal.minhwan15370665.chatgpt.site';
+  const origin = 'https://easy-attendance-personal.vercel.app';
   const requestType = 'TEACHER_NOTEBOOK_APP_BRIDGE';
   const responseType = 'TEACHER_NOTEBOOK_EXTENSION_BRIDGE';
   if (location.origin !== origin || window.top !== window) return;
