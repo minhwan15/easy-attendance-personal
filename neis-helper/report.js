@@ -102,21 +102,34 @@
     // NEIS uses a clipped custom viewport, not a native scrolling list.
     // Nested listbox roles belong to one popup; reveal the option with wheel events.
     const viewport=option.closest('.cl-viewport');
+    // 마지막 항목(종례)은 목록 아래쪽에 반쯤 잘려 보일 수 있습니다. 충분히 보이면 그대로 누르고,
+    // 휠로 더 내려가지 않으면(이미 끝) 보이는 부분을 누릅니다.
+    const visiblePart=()=>{
+      const bounds=viewport.getBoundingClientRect(),rect=option.getBoundingClientRect();
+      const top=Math.max(rect.top,bounds.top),bottom=Math.min(rect.bottom,bounds.bottom);
+      return {bounds,rect,top,bottom,height:Math.max(0,bottom-top)};
+    };
+    let clickArea=null;
     if(viewport&&viewport.getBoundingClientRect&&option.getBoundingClientRect){
+      let lastTop=null,stalled=0;
       await wait(()=>{
-        const bounds=viewport.getBoundingClientRect(),rect=option.getBoundingClientRect();
-        if(rect.top>=bounds.top&&rect.bottom<=bounds.bottom)return true;
+        const part=visiblePart();
+        const enough=part.height>=Math.min(8,Math.max(1,part.rect.height*0.5));
+        if(enough&&part.rect.top>=part.bounds.top&&part.rect.bottom<=part.bounds.bottom){clickArea=part;return true;}
+        if(lastTop!==null&&Math.abs(part.rect.top-lastTop)<0.5)stalled++;else stalled=0;
+        lastTop=part.rect.top;
+        if(enough&&stalled>=3){clickArea=part;return true;}
         const view=viewport.ownerDocument.defaultView;
-        if(view.WheelEvent)viewport.dispatchEvent(new view.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:rect.bottom>bounds.bottom?120:-120,deltaMode:0,clientX:bounds.left+10,clientY:bounds.top+10}));
+        if(view.WheelEvent)viewport.dispatchEvent(new view.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:part.rect.bottom>part.bounds.bottom?120:-120,deltaMode:0,clientX:part.bounds.left+10,clientY:part.bounds.top+10}));
         return false;
       },`${value} 항목을 목록 안으로 스크롤하지 못했습니다.`);
     }
     // Dispatch at the actual text child: the NEIS list delegates using event.target.
     const target=[...option.querySelectorAll('*')].find(x=>visible(x)&&!x.children.length&&text(x)===value)||option;
-    target.scrollIntoView?.({block:'nearest'});
+    if(!clickArea)target.scrollIntoView?.({block:'nearest'});
     const optionView=target.ownerDocument.defaultView;
     const rect=target.getBoundingClientRect?.();
-    const coordinates=rect?{clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}:{};
+    const coordinates=clickArea?{clientX:clickArea.rect.left+clickArea.rect.width/2,clientY:(clickArea.top+clickArea.bottom)/2}:rect?{clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}:{};
     if(optionView.MouseEvent)for(const type of ['mousedown','mouseup'])target.dispatchEvent(new optionView.MouseEvent(type,{bubbles:true,cancelable:true,view:optionView,button:0,...coordinates}));
     target.click();await wait(()=>{const fresh=same();const current=[fresh.category,fresh.status,...fresh.periods][slot];return selected(e,value)||selected(current,value);},`${value} 선택 결과를 확인하지 못했습니다.`);
   }
