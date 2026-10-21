@@ -3,6 +3,7 @@
   if (location.protocol!=='https:' || !(location.hostname==='neis.go.kr'||location.hostname.endsWith('.neis.go.kr'))) return;
   const clean=value=>String(value||'').replace(/\s+/g,'');
   const text=node=>clean(node?.textContent);
+  const baseName=value=>clean(value).replace(/\([^()]*\)$/,'');
   const visible=node=>Boolean(node?.isConnected&&node.getClientRects().length)&&node.ownerDocument.defaultView.getComputedStyle(node).visibility!=='hidden';
   const enabled=node=>visible(node)&&!node.closest('[inert],[aria-disabled="true"],.cl-disabled');
   const buttons='[role="button"],button';
@@ -140,7 +141,7 @@
         const candidates=[...root.querySelectorAll('[role="row"]')].filter(node=>node!==head&&visible(node)&&rowCells(node).length);
         for(const node of candidates) {
           const map=mapCells(headers,node);
-          if(value(map.get('성명'))!==id.name||Number(value(map.get('번호')))!==id.number)continue;
+          if(baseName(value(map.get('성명')))!==baseName(id.name)||Number(value(map.get('번호')))!==id.number)continue;
           found.push({d,root,head,headers,node,map,caption,id});
         }
       }
@@ -161,7 +162,7 @@
   }
   function state(target) {
     const marks=[];let unknown=false;
-    for(const [label,cell] of target.map)if(/^(조회|[1-7]교시|종례)$/.test(label)){const v=value(cell);if(v==='/')marks.push(label);else if(!['','미마감'].includes(v))unknown=true;}
+    for(const [label,cell] of target.map)if(/^(조회|[1-8]교시|종례)$/.test(label)){const v=value(cell);if(v==='/'||/^[ØøΦφ∅⌀]$/.test(v))marks.push(label);else if(!['','미마감'].includes(v))unknown=true;}
     return {kind:value(target.map.get('마감')),reason:value(target.map.get('사유')),marks,unknown};
   }
   function expectedKind(row) {return [row.reasonType+row.attendanceType,...(row.reasonType==='출석인정'?['인정'+row.attendanceType]:[])];}
@@ -178,11 +179,11 @@
       stage='날짜 선택';await selectDate(row);checkCancelled();stage='확인';
       const initial=locate(row), page=location.href;
       if(row.attendanceType==='조퇴'&&row.reasonType==='미인정'&&row.reason==='대입실기준비'){
-        const periods=[...initial.map.keys()].filter(label=>/^[1-7]교시$/.test(label)&&enabled(initial.map.get(label))).sort((a,b)=>Number(a[0])-Number(b[0]));
+        const periods=[...initial.map.keys()].filter(label=>/^[1-8]교시$/.test(label)&&enabled(initial.map.get(label))).sort((a,b)=>Number(a[0])-Number(b[0]));
         const labels=['조회',...periods,'종례'];
         if(!initial.map.has('종례')||!periods.length)throw new Error('출결표의 교시·종례를 확인하지 못했습니다.');
         let start=labels.indexOf(plan.boundary);
-        if(start<0&&/^[1-7]교시$/.test(plan.boundary)&&Number(plan.boundary[0])>Number(periods.at(-1)[0]))start=labels.length-1;
+        if(start<0&&/^[1-8]교시$/.test(plan.boundary)&&Number(plan.boundary[0])>Number(periods.at(-1)[0]))start=labels.length-1;
         if(start<0)throw new Error('조퇴 시작 교시를 출결표에서 확인하지 못했습니다.');
         plan={...plan,boundary:labels[start],marks:labels.slice(start)};
       }

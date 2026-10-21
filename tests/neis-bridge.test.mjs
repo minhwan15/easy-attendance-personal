@@ -122,7 +122,7 @@ test('a missing queue acknowledgement or rejection is not reported as unavailabl
 
 test('extension installation scope remains exact and needs no new broad host permissions', async () => {
   const manifest = JSON.parse(await readFile(new URL('../neis-helper/manifest.json', import.meta.url), 'utf8'));
-  assert.equal(manifest.version, '1.0.4');
+  assert.equal(manifest.version, '1.0.5');
   assert.deepEqual(manifest.content_scripts[0].matches, [`${NOTEBOOK_ORIGIN}/*`]);
   assert.equal(manifest.content_scripts[0].all_frames, false);
   assert.deepEqual(manifest.host_permissions, ['https://*.neis.go.kr/*']);
