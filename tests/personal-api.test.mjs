@@ -33,3 +33,14 @@ test('pair expiry, CSRF, concurrent independent records, own roster, settings co
  assert.equal((await request(env,'personal/profile',{profile:{...next,classNumber:22},before:next},a.cookie,'PATCH')).status,400);
  const rec=n=>({...emptyRecord(),id:crypto.randomUUID(),studentName:'학생'+n});const results=await Promise.all([1,2].map(n=>request(env,'notebook',{record:rec(n),before:null},a.cookie,'PATCH')));assert.ok(results.every(r=>r.status===200));assert.equal((await request(env,'notebook',null,a.cookie)).data.records.length,2);
 });
+test('calendar: editor is the profile teacher; delete keeps a recovery copy and checks conflicts',async()=>{const {env}=database();
+ const a=await request(env,'personal/create',profile);
+ const event={id:'teacher-00000000-0000-4000-8000-000000000001',sourceType:'teacher',sourcePages:[],evidencePages:[],evidence:['담임교사 입력'],issues:[],studentId:'32101',classNumber:21,name:'학생가',university:'가상대학교',department:'가상학과',admission:'미기재',kind:'면접',startDate:'2026-11-02',endDate:'2026-11-02',dateMode:'single',note:''};
+ const cal=await request(env,'calendar',null,a.cookie);assert.equal(cal.status,200,JSON.stringify(cal.data));
+ const saved=await request(env,'calendar',{event,before:null,editor:'아무이름'},a.cookie,'PATCH');assert.equal(saved.status,200,JSON.stringify(saved.data));
+ const stored=saved.data.data.events.find(x=>x.id===event.id);assert.equal(stored.updatedBy,'테스트담임');
+ assert.equal((await request(env,'calendar',{id:event.id,before:{...stored,university:'옛값'}},a.cookie,'DELETE')).status,409);
+ const del=await request(env,'calendar',{id:event.id,before:stored},a.cookie,'DELETE');assert.equal(del.status,200);
+ assert.ok(!del.data.data.events.some(x=>x.id===event.id));assert.equal(del.data.data.deletedEvents.at(-1).event.id,event.id);
+ assert.equal((await request(env,'calendar',{id:event.id,before:stored},a.cookie,'DELETE')).status,200);
+});

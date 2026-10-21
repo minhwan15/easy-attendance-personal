@@ -89,3 +89,4 @@
 .class-login-form>.btn{margin-top:10px;min-height:46px;font-size:16px}
 #legacy-login-form{margin-top:18px;text-align:left}#legacy-login-form label{display:block;font-size:13px;color:#576980;margin-bottom:7px}
 .welcome-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.detail-actions .btn.danger{color:#b4412f;border-color:#ead2cd;background:#fff;grid-column:1/-1}.detail-actions .btn.danger:hover{background:#fbefec}
