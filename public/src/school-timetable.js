@@ -16,9 +16,28 @@ export function schoolPeriodsForDate(date, lessonCount = 0) {
   const configuredCount=Number(settings.counts[weekday])||0;
   const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):configuredCount;
   if(count<1)return [];
-  const periods=settings.periods.slice(0,count).map((x,i)=>({...x,period:i+1}));
-  if(periods.length!==count || periods.some(x=>minuteOfDay(x.start)===null||minuteOfDay(x.end)===null||minuteOfDay(x.end)<=minuteOfDay(x.start)))return [];
+  const free=new Set(freePeriodsForWeekday(settings,weekday));
+  const periods=settings.periods.slice(0,count).map((x,i)=>free.has(i+1)?{period:i+1,start:'',end:'',free:true}:{...x,period:i+1});
+  if(periods.length!==count || periods.every(x=>x.free) || periods.some(x=>!x.free&&(minuteOfDay(x.start)===null||minuteOfDay(x.end)===null||minuteOfDay(x.end)<=minuteOfDay(x.start))))return [];
   return periods;
+}
+
+/** 요일별 공강(비워두기) 교시. 공강은 나이스 교시 칸이 비어 있거나 ‘공강’으로 표시되는 시간입니다. */
+export function freePeriodsForWeekday(settings,weekday){
+  const list=Array.isArray(settings?.free)?settings.free[weekday]:null;
+  return Array.isArray(list)?[...new Set(list.map(Number))].filter(n=>Number.isInteger(n)&&n>=1&&n<=8).sort((a,b)=>a-b):[];
+}
+
+/** 공강을 뺀 실제 수업 교시 번호 */
+export function lessonPeriodNumbers(periods){
+  return periods.filter(period=>!period.free).map(period=>period.period);
+}
+
+/** 시간으로 찾은 교시를 이어진 범위로 만듭니다. 사이의 공강도 포함해 나이스 연속 표시와 맞춥니다. */
+function spanPeriods(scheduled,matched){
+  if(!matched.length)return [];
+  const first=Math.min(...matched),last=Math.max(...matched);
+  return scheduled.map(period=>period.period).filter(n=>n>=first&&n<=last);
 }
 
 export function formatSchoolPeriods(periods) {
@@ -42,14 +61,16 @@ export function missedPeriods({kind,date,departureTime,returnTime,arrivalTime,le
   if(!scheduled.length)return invalid('해당 날짜의 수업 시간표가 없습니다. 빠진 교시를 직접 선택해 주세요.');
   if(kind==='late') {
     if(arrival===null)return invalid('등교 시각을 입력해 주세요.');
-    const periods=scheduled.filter(period=>arrival>minuteOfDay(period.start)).map(period=>period.period);
+    const lessons=scheduled.filter(period=>!period.free),matched=lessons.filter(period=>arrival>minuteOfDay(period.start)).map(period=>period.period);
+    const periods=matched.length?scheduled.map(period=>period.period).filter(n=>n<=Math.max(...matched)):[];
     return {valid:true,periods,meetings:['조회'],text:formatSchoolPeriods(['조회',...periods]),error:''};
   }
   if(departure===null)return invalid('출발 시각을 입력해 주세요.');
   if(kind==='outing'&&returned===null)return invalid('실제 복귀 시각을 입력해 주세요.');
   if(kind==='outing'&&returned<departure)return invalid('실제 복귀 시각은 출발 시각보다 빠를 수 없습니다.');
   const end=kind==='early'?24*60:returned;
-  const periods=end===departure?[]:scheduled.filter(period=>departure<minuteOfDay(period.end)&&end>minuteOfDay(period.start)).map(period=>period.period);
+  const matched=end===departure?[]:scheduled.filter(period=>!period.free&&departure<minuteOfDay(period.end)&&end>minuteOfDay(period.start)).map(period=>period.period);
+  const periods=kind==='early'&&matched.length?scheduled.map(period=>period.period).filter(n=>n>=Math.min(...matched)):spanPeriods(scheduled,matched);
   // Meeting times have not been supplied: the attendance type determines the required label.
   const meetings=kind==='early'?['종례']:[];
   return {valid:true,periods,meetings,text:formatSchoolPeriods([...periods,...meetings]),error:''};

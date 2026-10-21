@@ -7,7 +7,7 @@
   const visible=node=>Boolean(node?.isConnected&&node.getClientRects().length)&&node.ownerDocument.defaultView.getComputedStyle(node).visibility!=='hidden';
   const enabled=node=>visible(node)&&!node.closest('[inert],[aria-disabled="true"],.cl-disabled');
   const buttons='[role="button"],button';
-  let running=false,cancelRequested=false;
+  let running=false,cancelRequested=false,freeLabels=new Set();
   function checkCancelled(){if(cancelRequested)throw new Error('사용자가 자동입력을 중단했습니다. 현재 학생은 미완료로 남겼습니다.');}
   function documents(d,result=[]) {result.push(d);for(const f of d.querySelectorAll('iframe,frame')){try{if(f.contentDocument)documents(f.contentDocument,result);}catch{}}return result;}
   function identity(row) {
@@ -161,18 +161,20 @@
     return labels;
   }
   function state(target) {
-    const marks=[];let unknown=false;
-    for(const [label,cell] of target.map)if(/^(조회|[1-8]교시|종례)$/.test(label)){const v=value(cell);if(v==='/'||/^[ØøΦφ∅⌀]$/.test(v))marks.push(label);else if(!['','미마감'].includes(v))unknown=true;}
-    return {kind:value(target.map.get('마감')),reason:value(target.map.get('사유')),marks,unknown};
+    const marks=[],free=[];let unknown=false;
+    for(const [label,cell] of target.map)if(/^(조회|[1-8]교시|종례)$/.test(label)){const v=value(cell);if(v==='/'||/^[ØøΦφ∅⌀]$/.test(v))marks.push(label);else if(v==='공강'){free.push(label);freeLabels.add(label);}else if(!['','미마감'].includes(v))unknown=true;}
+    return {kind:value(target.map.get('마감')),reason:value(target.map.get('사유')),marks,free,unknown};
   }
   function expectedKind(row) {return [row.reasonType+row.attendanceType,...(row.reasonType==='출석인정'?['인정'+row.attendanceType]:[])];}
   function completed(row,plan,target) {
-    const s=state(target);
-    return !s.unknown&&expectedKind(row).includes(s.kind)&&s.reason===clean(row.reason)&&s.marks.length===plan.marks.length&&plan.marks.every(x=>s.marks.includes(x));
+    const s=state(target),skip=new Set([...freeLabels,...s.free]);
+    // 공강 칸은 나이스가 표시하지 않으므로 비교에서 뺍니다.
+    const expected=plan.marks.filter(x=>!skip.has(x)),marks=s.marks.filter(x=>!skip.has(x));
+    return !s.unknown&&expectedKind(row).includes(s.kind)&&s.reason===clean(row.reason)&&marks.length===expected.length&&expected.every(x=>marks.includes(x));
   }
   async function waitFor(check,message) {const end=Date.now()+6000;while(Date.now()<end){checkCancelled();if(check())return;await new Promise(resolve=>setTimeout(resolve,45));}checkCancelled();throw new Error(message);}
   async function run(row,plan,autoSave=false) {
-    if(running)throw new Error('자동입력 중입니다.');running=true;cancelRequested=false;
+    if(running)throw new Error('자동입력 중입니다.');running=true;cancelRequested=false;freeLabels=new Set();
     let stage='확인';
     try {
       checkCancelled();validatePlan(row,plan);
@@ -218,8 +220,13 @@
       checkCancelled();stage='적용';popup.apply.click();
       await waitFor(()=>{const t=again();return expectedKind(row).includes(value(t.map.get('마감')))&&value(t.map.get('사유'))===clean(row.reason);},'적용 결과를 확인하지 못했습니다. 학생 행의 마감·사유를 확인해 주세요.');
       if(!completed(row,plan,again())&&plan.boundary) {
-        const target=again().map.get(plan.boundary);const clickTarget=target.querySelector('.cl-text')||target.querySelector('.cl-control')||target;
-        if(!enabled(clickTarget))throw new Error(`${plan.boundary} 칸을 누를 수 없습니다.`);
+        const current=again(),isFree=label=>freeLabels.has(label)||value(current.map.get(label))==='공강';
+        // 기준 교시가 공강이면 지각은 앞쪽, 조퇴는 뒤쪽의 가장 가까운 수업 교시를 누릅니다.
+        const ordered=plan.kind==='지각'?[...plan.marks].reverse():plan.marks;
+        const boundary=isFree(plan.boundary)?ordered.find(label=>!isFree(label)):plan.boundary;
+        if(!boundary)throw new Error('빠진 교시가 모두 공강입니다. 나이스 화면을 확인해 주세요.');
+        const target=current.map.get(boundary);const clickTarget=target.querySelector('.cl-text')||target.querySelector('.cl-control')||target;
+        if(!enabled(clickTarget))throw new Error(`${boundary} 칸을 누를 수 없습니다.`);
         stage='기준 교시 클릭';clickTarget.click();
       }
       stage='표시 확인';await waitFor(()=>completed(row,plan,again()),'교시 표시가 기록과 다릅니다. 나이스의 조회·교시·종례를 확인해 주세요.');

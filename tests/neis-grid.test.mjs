@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { attendancePlan } from '../neis-helper/attendance-plan.js';
 const source=readFileSync(new URL('../neis-helper/grid.js',import.meta.url),'utf8');
 const base={studentId:'30801',studentName:'가상학생',classNumber:'8',number:'1',date:'2026-10-12',attendanceType:'지각',reasonType:'질병',reason:'가상 사유',periods:'조회 · 1~3교시'};
-function fixture({row=base,wrongDate=false,wrongName=false,existing=false,brokenBoundary=false,reverseCells=false,dateInput=false,dateRefresh=true,calendarMonth=null,calendarDuplicate=false,calendarBroken=false,calendarClosed=false,emptyStart=false,queryRefresh=true,queryWrongClass=false,searchDuplicate=false,dateReadOnly=false,autoSave=false,saveAck=true,saveConfirm=false,noChanges=false,saveNotice=false,saveRejected=false,actualLessonCount=null,markSymbol='/',neisName=null}={}) {
+function fixture({row=base,wrongDate=false,wrongName=false,existing=false,brokenBoundary=false,reverseCells=false,dateInput=false,dateRefresh=true,calendarMonth=null,calendarDuplicate=false,calendarBroken=false,calendarClosed=false,emptyStart=false,queryRefresh=true,queryWrongClass=false,searchDuplicate=false,dateReadOnly=false,autoSave=false,saveAck=true,saveConfirm=false,noChanges=false,saveNotice=false,saveRejected=false,actualLessonCount=null,markSymbol='/',neisName=null,freePeriods=[]}={}) {
   const all=[],clicks=[];let listener,popupOpen=false,fields,studentSelected=false,pickerRoot,selectedDate=row.date;
   class Node {
     constructor(role='',content='',parent=null,left=0,width=90){this.ownerDocument=parent?.ownerDocument;this.className='';this.attrs={};this.role=role;this.content=content;this.parentElement=parent;this.children=[];this.isConnected=true;this.left=left;this.width=width;parent?.children.push(this);all.push(this);}
@@ -28,7 +28,7 @@ function fixture({row=base,wrongDate=false,wrongName=false,existing=false,broken
     const node=new Node('row','',root),map=new Map();
     // Observed body has fourteen cells despite thirteen named headers.
     new Node('gridcell','',node,-120,80);
-    labels.forEach((label,i)=>{const cell=new Node('gridcell','',node,i*100),control=new Node('', '',cell);control.kind='control';control.label=label;const value=new Node('',label==='번호'?String(student+1):label==='성명'?(student?'다른학생':wrongName?'이름불일치':neisName??row.studentName):'',control);value.kind='text';value.label=label;map.set(label,{cell,control,value});});
+    labels.forEach((label,i)=>{const cell=new Node('gridcell','',node,i*100),control=new Node('', '',cell);control.kind='control';control.label=label;const value=new Node('',label==='번호'?String(student+1):label==='성명'?(student?'다른학생':wrongName?'이름불일치':neisName??row.studentName):freePeriods.includes(label)?'공강':'',control);value.kind='text';value.label=label;map.set(label,{cell,control,value});});
     if(reverseCells)node.children.reverse();
     maps.push(map);
   }
@@ -40,11 +40,11 @@ function fixture({row=base,wrongDate=false,wrongName=false,existing=false,broken
   wanted.get('마감').control.onClick=()=>{if(studentSelected)popupOpen=true;};
   for(const label of labels.filter(x=>/^(조회|[1-7]교시|종례)$/.test(x)))wanted.get(label).value.onClick=()=>{
     if(brokenBoundary)return;
-    const plan=attendancePlan(actualLessonCount?{...row,lessonCount:actualLessonCount,periods:`1~${actualLessonCount}교시 · 종례`}:row);for(const x of plan.marks)wanted.get(x).value.content=markSymbol;
+    const plan=attendancePlan(actualLessonCount?{...row,lessonCount:actualLessonCount,periods:`1~${actualLessonCount}교시 · 종례`}:row);for(const x of plan.marks)if(!freePeriods.includes(x))wanted.get(x).value.content=markSymbol;
   };
   const apply=new Node('button','적용',body);apply.label='적용';apply.onClick=()=>{
     popupOpen=false;wanted.get('마감').value.content=fields.reasonType+fields.attendanceType;wanted.get('사유').value.content=fields.reason;
-    if(row.attendanceType==='결석')for(const x of attendancePlan(row).marks)wanted.get(x).value.content=markSymbol;
+    if(row.attendanceType==='결석')for(const x of attendancePlan(row).marks)if(!freePeriods.includes(x))wanted.get(x).value.content=markSymbol;
   };
   if(calendarMonth) {
     const picker=new Node('', '',body);pickerRoot=picker;picker.className='cl-calendar-field';picker.isConnected=!calendarClosed;
@@ -164,4 +164,15 @@ test('NEIS names with a trailing note such as (위탁) or (공동) still match t
     const f=fixture({neisName});const result=await f.call();assert.equal(result.ok,true,neisName);assert.equal(f.clicks[0],'성명');
   }
   const other=fixture({neisName:'다른이름(위탁)'});assert.equal((await other.call()).ok,false);assert.deepEqual(other.clicks,[]);
+});
+
+test('공강 cells are not unknown marks: absence completes and saves without marking the free period',async()=>{
+  const f=fixture({row:{...base,attendanceType:'결석',reasonType:'질병',periods:''},freePeriods:['2교시'],autoSave:true});
+  const result=await f.call();assert.equal(result.ok,true);assert.equal(result.saved,true);
+  assert.equal(f.wanted.get('2교시').value.content,'공강');assert.equal(f.wanted.get('1교시').value.content,'/');
+});
+test('late arrival whose boundary period is 공강 clicks the nearest earlier lesson period instead',async()=>{
+  const f=fixture({row:{...base,periods:'조회 · 1~2교시'},freePeriods:['2교시']});
+  const result=await f.call();assert.equal(result.ok,true);
+  assert.equal(f.clicks.at(-1),'1교시');assert.equal(f.wanted.get('2교시').value.content,'공강');
 });

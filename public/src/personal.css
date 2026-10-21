@@ -11,3 +11,5 @@
 .brand-edition{font-size:8px;font-weight:700;letter-spacing:.1em;border:1px solid #d9d5bf;background:#f7f4e8;color:#756442;border-radius:5px;padding:4px 5px}
 .site-header .brand-sub{font-size:11px;color:#6c7c70;line-height:1.4}
 @media(max-width:780px){.site-header .personal-brand-mark{width:46px;height:46px;flex-basis:46px;border-radius:14px}.site-header .brand{gap:10px}.site-header .brand-title{font-size:21px}.brand-kicker{font-size:8px}.site-header .brand-sub{display:block;font-size:10px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.brand-edition{font-size:7px;padding:3px 4px}}
+.personal-times .personal-free{white-space:nowrap}.personal-times .personal-free label{display:inline-flex;align-items:center;gap:2px;margin-right:6px;font-size:12px}.personal-times .personal-free input{width:auto;padding:0;margin:0}
+@media (max-width:560px){.personal-times .personal-free{white-space:normal}.personal-times .personal-free label{margin-right:4px}}

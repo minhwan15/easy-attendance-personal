@@ -1,5 +1,5 @@
 import { isDate, isIsoTimestamp, todaySeoul } from './model.js';
-import { schoolPeriodsForDate, formatSchoolPeriods } from './school-timetable.js';
+import { schoolPeriodsForDate, formatSchoolPeriods, lessonPeriodNumbers } from './school-timetable.js';
 
 export const NOTEBOOK_CATEGORIES = ['attendance', 'experience', 'counseling', 'activity'];
 export const ATTENDANCE_TYPES = ['결석', '지각', '조퇴', '결과'];
@@ -543,7 +543,7 @@ export function toNeisRows(records) {
     const dates=['attendance','experience'].includes(record.category) && record.attendanceDates.length ? record.attendanceDates : [record.startDate];
     for (const date of dates) {
       if(record.neisConfirmedDates.includes(date))continue;
-      const absencePeriods=record.attendanceType==='결석'?formatSchoolPeriods(schoolPeriodsForDate(date,record.lessonCount).map(period=>period.period)):'';
+      const absencePeriods=record.attendanceType==='결석'?formatSchoolPeriods(lessonPeriodNumbers(schoolPeriodsForDate(date,record.lessonCount))):'';
       const row={recordId:record.id,category:record.category,studentId:record.studentId,studentName:record.studentName,classNumber:record.classNumber,number:record.number,date,
         attendanceType:record.attendanceType,reasonType:record.reasonType,periods:record.attendanceType==='결석'?(absencePeriods||record.periods):withAttendanceMeetings(record.periods,record.attendanceType,{date,lessonCount:record.lessonCount}),reason:record.reason,lessonCount:record.lessonCount||schoolPeriodsForDate(date).length};
       const key=JSON.stringify([row.category,row.studentId,row.studentName,row.date,row.attendanceType,row.reasonType,row.periods,row.reason]);

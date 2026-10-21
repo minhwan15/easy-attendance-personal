@@ -44,3 +44,17 @@ test('calendar: editor is the profile teacher; delete keeps a recovery copy and 
  assert.ok(!del.data.data.events.some(x=>x.id===event.id));assert.equal(del.data.data.deletedEvents.at(-1).event.id,event.id);
  assert.equal((await request(env,'calendar',{id:event.id,before:stored},a.cookie,'DELETE')).status,200);
 });
+test('timetable: unused periods may stay blank and 공강 periods need no time',async()=>{const {env}=database();
+ const a=await request(env,'personal/create',profile);
+ const t=(i,s,e)=>({period:i,start:s,end:e});
+ const periods=[t(1,'09:00','09:50'),t(2,'',''),t(3,'11:00','11:50'),t(4,'12:00','12:50'),t(5,'13:40','14:30'),t(6,'14:40','15:30'),t(7,'',''),t(8,'','')];
+ const free=[[],[],[],[],[2],[],[]];
+ // 2교시 is 공강 only on Thursday, so other weekdays still need its time.
+ const bad={...profile,timetable:{counts:[0,6,6,6,6,6,0],periods,free}};
+ assert.equal((await request(env,'personal/profile',{profile:bad,before:profile},a.cookie,'PATCH')).status,400);
+ const good={...profile,timetable:{counts:[0,6,6,6,6,6,0],periods,free:[[],[2],[2],[2],[2],[2],[]]}};
+ const saved=await request(env,'personal/profile',{profile:good,before:profile},a.cookie,'PATCH');
+ assert.equal(saved.status,200);assert.deepEqual(saved.data.profile.timetable.free[4],[2]);
+ const allFree={...profile,timetable:{counts:[0,1,0,0,0,0,0],periods,free:[[],[1],[],[],[],[],[]]}};
+ assert.equal((await request(env,'personal/profile',{profile:allFree,before:saved.data.profile},a.cookie,'PATCH')).status,400);
+});

@@ -10,7 +10,7 @@ import { normalizeParentReplies } from './notebook-parent-replies.js';
 import { retainedExperienceConfirmations } from './notebook-experience-grid-model.js';
 import { emptyRecord, normalizeRecord, parseSourceText, parseConversationCandidates, contentReadiness, readiness, experienceStatus, toNeisRows, exportCsv, parsePeriods, withAttendanceMeetings, ATTENDANCE_TYPES, REASON_TYPES } from './notebook-model.js';
 import { todaySeoul } from './model.js';
-import { schoolPeriodsForDate, formatSchoolPeriods, missedPeriods } from './school-timetable.js';
+import { schoolPeriodsForDate, formatSchoolPeriods, missedPeriods, lessonPeriodNumbers } from './school-timetable.js';
 import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
@@ -439,7 +439,7 @@ function openEditor(record,sourceType) {
   if(uploadController)uploadController.abort();
   before=state.records.find(r=>r.id===record.id)?clone(record):null;
   draft={...emptyRecord(),...clone(record)};
-  if(draft.attendanceType==='결석') { const lessons=schoolPeriodsForDate(draft.startDate,draft.lessonCount); draft.periods=lessons.length?formatSchoolPeriods(lessons.map(item=>item.period)):''; }
+  if(draft.attendanceType==='결석') { const lessons=lessonPeriodNumbers(schoolPeriodsForDate(draft.startDate,draft.lessonCount)); draft.periods=lessons.length?formatSchoolPeriods(lessons):''; }
   editorWarnings=[];conversationCandidates=[];selectedCandidateId='';manualIdentity=studentIdentity(draft);
   if(sourceType)draft.sourceType=sourceType;
   periodEntry={mode:'manual',arrivalTime:''};
@@ -474,14 +474,16 @@ function selectedPeriodValues(text) {
 }
 function periodSelectionHtml() {
   const type=draft.attendanceType;
-  if(type==='결석')return '<div class="period-picker"><p>결석은 해당 날짜의 수업 교시 전체가 자동 입력됩니다.</p></div>';
+  const freeNumbers=new Set(schoolPeriodsForDate(draft.startDate,draft.lessonCount).filter(item=>item.free).map(item=>item.period));
+  const freeNote=freeNumbers.size?` · 공강 ${formatSchoolPeriods([...freeNumbers])} 제외`:'';
+  if(type==='결석')return `<div class="period-picker"><p>결석은 해당 날짜의 수업 교시 전체가 자동 입력됩니다${freeNote}.</p></div>`;
   const numbers=editorLessonNumbers(),known=numbers.length>0,lessons=known?numbers:[1,2,3,4,5,6,7];
   const selected=selectedPeriodValues(draft.periods);
   const meeting=type==='지각'?'조회':type==='조퇴'?'종례':'';
   const values=[...(type!=='조퇴'?['조회']:[]),...lessons,...(type!=='지각'?['종례']:[])];
   const help=type==='지각'?'빠진 마지막 교시를 누르면 조회부터 한 번에 선택됩니다.':type==='조퇴'?'빠지기 시작한 교시를 누르면 종례까지 한 번에 선택됩니다.':'빠진 시간을 눌러 선택하세요. 출결 구분을 지각·조퇴로 고르면 한 번에 선택됩니다.';
   const countNote=Number(draft.lessonCount)?`${draft.lessonCount}교시 수업(직접 선택)`:known?`${lessons.length}교시 수업(요일 시간표)`:'날짜 전 · 7교시로 표시 중';
-  return `<div class="period-picker"><div class="period-chips" role="group" aria-label="빠진 시간 선택">${values.map(value=>`<label class="period-chip"><input type="checkbox" data-missed-period="${value}" ${selected.has(value)?'checked':''} ${value===meeting&&selected.has(value)?'disabled':''}><span>${Number.isInteger(value)?`${value}교시`:value}</span></label>`).join('')}</div><p>${help}</p><small>${countNote} · 교시 수가 다르면 위 ‘이 날짜 실제 수업’을 먼저 바꾸세요${meeting?` · ${meeting} 포함`:''}</small>${type==='지각'?`<div class="period-arrival"><label for="period-arrival-time">도착 시각</label><input id="period-arrival-time" type="time" value="${esc(periodEntry.arrivalTime)}" aria-describedby="period-arrival-hint"><small id="period-arrival-hint">시각을 넣으면 자동 선택</small></div>`:''}</div>`;
+  return `<div class="period-picker"><div class="period-chips" role="group" aria-label="빠진 시간 선택">${values.map(value=>`<label class="period-chip"><input type="checkbox" data-missed-period="${value}" ${selected.has(value)?'checked':''} ${value===meeting&&selected.has(value)?'disabled':''}><span>${Number.isInteger(value)?`${value}교시${freeNumbers.has(value)?' (공강)':''}`:value}</span></label>`).join('')}</div><p>${help}</p><small>${countNote} · 교시 수가 다르면 위 ‘이 날짜 실제 수업’을 먼저 바꾸세요${meeting?` · ${meeting} 포함`:''}</small>${type==='지각'?`<div class="period-arrival"><label for="period-arrival-time">도착 시각</label><input id="period-arrival-time" type="time" value="${esc(periodEntry.arrivalTime)}" aria-describedby="period-arrival-hint"><small id="period-arrival-hint">시각을 넣으면 자동 선택</small></div>`:''}</div>`;
 }
 function refreshPeriodSelector() {
   const box=document.querySelector('#period-selector');if(!box)return;
@@ -500,8 +502,8 @@ function selectPeriodEndpoint(endpoint,type=draft.attendanceType) {
 }
 function updatePeriodsForDateOrType(reason='date') {
   if(draft.attendanceType==='결석'){
-    const lessons=schoolPeriodsForDate(draft.startDate,draft.lessonCount);
-    setSelectedPeriods(lessons.length?formatSchoolPeriods(lessons.map(item=>item.period)):'','automatic-absence');return;
+    const lessons=lessonPeriodNumbers(schoolPeriodsForDate(draft.startDate,draft.lessonCount));
+    setSelectedPeriods(lessons.length?formatSchoolPeriods(lessons):'','automatic-absence');return;
   }
   if(!['지각','조퇴','결과'].includes(draft.attendanceType)){refreshPeriodSelector();return;}
   if(reason==='date'&&periodEntry.mode==='manual'){refreshPeriodSelector();return;}
