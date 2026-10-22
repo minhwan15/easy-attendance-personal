@@ -3,7 +3,7 @@ import { emptyRecord, parseSourceText, readiness, withAttendanceMeetings, REASON
 import { todaySeoul } from './model.js';
 import { preparePassRecord } from './notebook-pass-model.js';
 import { printPass } from './notebook-pass-print.js';
-import { missedPeriods, seoulNow, schoolPeriodsForDate } from './school-timetable.js';
+import { missedPeriods, seoulNow, schoolPeriodsForDate, formatSchoolPeriods } from './school-timetable.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -30,7 +30,7 @@ export function openPassEditor({record,students=[],user,save,onSaved=()=>{},noti
     <div class="form-grid">${field('학번','studentId',{placeholder:'30801',list:'pass-student-ids',max:5,required:true})}${field('학생 이름','studentName',{placeholder:'이름 또는 명렬표 선택',list:'pass-student-names',max:40,required:true})}</div>
     <div class="form-grid pass-time-grid">${field('날짜','startDate',{type:'date',required:true})}<div class="pass-departure-field">${field('나가는 시각','departureTime',{type:'time',required:true})}<button type="button" class="pass-text-button" id="pass-current-time">현재 시각</button></div><div id="pass-return-field">${field('돌아올 예정 시각','returnTime',{type:'time'})}</div></div>
     <div class="form-grid pass-reason-grid"><div class="field"><label for="pass-reasonType">사유 구분</label><select id="pass-reasonType" name="reasonType"><option value="">선택</option>${REASON_TYPES.map(type=>`<option value="${esc(type)}" ${current.reasonType===type?'selected':''}>${esc(type)}</option>`).join('')}</select></div><div class="field"><label for="pass-reason">사유</label><input id="pass-reason" name="reason" maxlength="2000" value="${esc(current.reason)}" placeholder="예: 복통으로 병원 진료" required></div></div>
-    <div class="field"><label for="pass-lessonCount">이 날짜 실제 수업</label><select name="lessonCount" id="pass-lessonCount"><option value="0" ${!current.lessonCount?'selected':''}>기본 요일 시간표</option>${Array.from({length:8},(_,i)=>`<option value="${i+1}" ${Number(current.lessonCount)===i+1?'selected':''}>${i+1}교시 수업</option>`).join('')}</select></div><div class="pass-period-fields"><div class="pass-period-input">${field('빠지는 교시','periods',{placeholder:'시간으로 계산 · 직접 수정 가능',max:100})}<button type="button" class="pass-text-button" id="pass-calculate-periods">시간으로 계산</button></div><p id="pass-period-hint" aria-live="polite"></p><p class="pass-timetable-hint">내 학교 시간표 적용 · 조퇴는 종례까지</p></div>
+    <div class="field"><label for="pass-lessonCount">이 날짜 실제 수업</label><select name="lessonCount" id="pass-lessonCount"><option value="0" ${!current.lessonCount?'selected':''}>기본 요일 시간표</option>${Array.from({length:8},(_,i)=>`<option value="${i+1}" ${Number(current.lessonCount)===i+1?'selected':''}>${i+1}교시 수업</option>`).join('')}</select></div><div class="pass-period-fields"><div class="pass-period-input">${field('빠지는 교시','periods',{placeholder:'예: 3~4교시 · 아래 교시를 눌러 선택',max:100})}<button type="button" class="pass-text-button" id="pass-calculate-periods">시간으로 계산</button></div><div class="period-chips pass-period-chips" id="pass-period-chips" role="group" aria-label="빠지는 교시 선택"></div><p id="pass-period-hint" aria-live="polite"></p><p class="pass-timetable-hint">내 학교 시간표 적용 · 조퇴는 종례까지</p></div>
     <details class="pass-neis-fields" id="pass-return-details" ${record?.actualReturnTime?'open':''}><summary>실제 복귀 시각 <span>복귀 후 입력</span></summary><div id="pass-actual-return-field">${field('실제 복귀 시각','actualReturnTime',{type:'time'})}</div></details><p id="pass-neis-hint" class="pass-neis-hint"></p>
     <p class="pass-teacher">담임교사 <strong>${esc(current.teacherName)}</strong> 확인</p><p id="pass-save-status" class="pass-save-status" role="status"></p></div>
     <footer class="dialog-footer"><span class="save-state">${demo?'예시 모드':'출력 전 내 계정에 자동 저장'}</span><span class="footer-spacer"></span><button type="button" class="btn" id="pass-save-only" ${previous?'':'hidden'}>수정 저장</button><button type="submit" class="btn primary" id="pass-save-print">저장하고 출력</button></footer></form>`;
@@ -71,6 +71,28 @@ export function openPassEditor({record,students=[],user,save,onSaved=()=>{},noti
     }else if(result.valid)hint=result.text?`${el('pass-departureTime').value}${outing?`~${el('pass-actualReturnTime').value}`:' 조퇴'} → ${result.text}`:'빠지는 수업이 없습니다.';
     else hint=result.error||'시각을 입력하면 빠지는 교시를 계산합니다.';
     el('pass-period-hint').textContent=hint;
+    renderPeriodChips(lessons,outing);
+  }
+  /** 교시를 눌러 고릅니다. 조퇴는 누른 교시부터 종례까지, 외출은 누른 교시만 켜고 끕니다. */
+  function selectedPeriods(text){
+    const values=new Set(),source=String(text||'').replace(/\s+/g,'');
+    if(source.includes('조회'))values.add('조회');if(source.includes('종례'))values.add('종례');
+    source.replace(/조회|종례/g,'').replace(/([1-8])(?:[~–-]([1-8]))?/g,(_,a,b)=>{for(let n=Number(a);n<=Number(b||a);n++)values.add(n);return '';});
+    return values;
+  }
+  function renderPeriodChips(lessons,outing){
+    const box=el('pass-period-chips');if(!box)return;
+    const numbers=lessons.length?lessons.map(item=>item.period):[1,2,3,4,5,6,7],free=new Set(lessons.filter(item=>item.free).map(item=>item.period));
+    const values=[...numbers,...(outing?[]:['종례'])],selected=selectedPeriods(el('pass-periods').value);
+    box.innerHTML=values.map(value=>`<label class="period-chip"><input type="checkbox" data-pass-period="${value}" ${selected.has(value)?'checked':''}><span>${Number.isInteger(value)?`${value}교시${free.has(value)?' (공강)':''}`:value}</span></label>`).join('');
+    box.querySelectorAll('[data-pass-period]').forEach(input=>input.onchange=()=>{
+      const raw=input.dataset.passPeriod,value=raw==='종례'?raw:Number(raw);
+      let next;
+      if(outing){next=selectedPeriods(el('pass-periods').value);input.checked?next.add(value):next.delete(value);next=[...next];}
+      else next=value==='종례'?['종례']:[...numbers.filter(n=>n>=value),'종례'];
+      el('pass-periods').value=formatSchoolPeriods(next);
+      periodsMode='manual';periodsTouched=true;markChanged();updatePeriods();
+    });
   }
   function stopClock() {liveClock=false;if(clockId!==null){clearInterval(clockId);clockId=null;}}
   function refreshClock() {
@@ -90,6 +112,7 @@ export function openPassEditor({record,students=[],user,save,onSaved=()=>{},noti
   dialog.addEventListener('close',stopClock);
   dialog.querySelectorAll('[data-pass-kind]').forEach(button=>button.onclick=()=>{if(current.passKind===button.dataset.passKind)return;read();current.passKind=button.dataset.passKind;if(periodsMode==='source')periodsMode='time';markChanged();updateKind();updatePeriods();});
   el('pass-current-time').onclick=()=>{stopClock();el('pass-departureTime').value=seoulNow().time;markChanged();updatePeriods();};
+  el('pass-periods').setAttribute('autocomplete','off');
   el('pass-calculate-periods').onclick=()=>{periodsMode='time';periodsTouched=false;markChanged();updatePeriods();};
   form.addEventListener('input',event=>{
     markChanged();
