@@ -45,7 +45,7 @@
     return icon;
   }
   async function waitFor(check,message) {
-    const deadline=Date.now()+1800;
+    const deadline=Date.now()+4000;
     while(Date.now()<deadline) {
       if(check())return;
       await new Promise(resolve=>setTimeout(resolve,40));

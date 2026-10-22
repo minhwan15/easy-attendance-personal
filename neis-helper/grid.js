@@ -238,8 +238,12 @@
         const successText=node=>/^(?:정상적으로)?저장(?:했습니다|되었습니다|하였습니다|완료되었습니다)[.!。]?$/.test(text(node));
         const visibleMessages=()=>[...currentTarget.d.querySelectorAll('*')].filter(node=>visible(node)&&successText(node));
         const previous=new Map(visibleMessages().map(node=>[node,text(node)]));
+        // 이전 학생의 ‘저장되었습니다’가 같은 요소로 다시 뜨면 새 메시지로 구분되지 않습니다.
+        // 저장 후 한 번이라도 사라졌다가 다시 보인 메시지는 새 성공 메시지로 봅니다.
+        const allMessages=()=>[...currentTarget.d.querySelectorAll('*')].filter(node=>successText(node));
+        const hiddenSince=new Set();
         checkCancelled();saveButtons[0].click();
-        const end=Date.now()+10000;let acknowledged=false,confirmedSave=false;
+        let end=Date.now()+10000,acknowledged=false,confirmedSave=false,resaved=false;
         function saveConfirmation(noChanges=false,savedMessage=false,failedMessage=false){
           const prompts=[...currentTarget.d.querySelectorAll('*')].filter(node=>visible(node)&&(failedMessage?/^출결마감구분만존재하거나,?교시만체크되어있는학생이존재합니다[.]?확인후다시작업해주시기바랍니다[.]?$/.test(text(node)):savedMessage?successText(node):noChanges?/^변경된내용이없습니다[.!。]?$/.test(text(node)):text(node)==='저장하시겠습니까?'));
           const matches=[];
@@ -266,7 +270,13 @@
             unchanged.click();acknowledged=true;break;
           }
           if(!confirmedSave){const confirmation=saveConfirmation();if(confirmation){confirmation.click();confirmedSave=true;}}
-          if(visibleMessages().some(node=>!previous.has(node)||previous.get(node)!==text(node))){const done=saveConfirmation(false,true);if(done)done.click();acknowledged=true;break;}
+          for(const node of allMessages())if(!visible(node))hiddenSince.add(node);
+          if(visibleMessages().some(node=>!previous.has(node)||previous.get(node)!==text(node)||hiddenSince.has(node))){const done=saveConfirmation(false,true);if(done)done.click();acknowledged=true;break;}
+          // 성공 메시지를 놓쳤으면 저장을 한 번 더 누릅니다. 이미 저장됐다면 나이스가 ‘변경된 내용이 없습니다’로 알려 줍니다.
+          if(Date.now()>=end-4000&&confirmedSave&&!resaved&&!saveConfirmation()&&completed(row,plan,locate(row))){
+            const again2=[...currentTarget.d.querySelectorAll(buttons)].filter(node=>enabled(node)&&text(node)==='저장');
+            if(again2.length===1){resaved=true;confirmedSave=false;for(const node of visibleMessages())previous.set(node,text(node));hiddenSince.clear();again2[0].click();end=Date.now()+8000;}
+          }
           await new Promise(resolve=>setTimeout(resolve,80));
         }
         if(!acknowledged)throw new Error('저장 버튼은 눌렀지만 성공 메시지를 확인하지 못했습니다. 나이스 결과를 확인해 주세요.');

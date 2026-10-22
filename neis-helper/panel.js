@@ -4,7 +4,7 @@ import { reportPlan } from './report-plan.js';
 import { attendancePlan } from './attendance-plan.js';
 import { PANEL_MESSAGE } from './bridge-core.js';
 const $ = id => document.getElementById(id);
-let rows=[],progress={},current=0,busy=false,stopRequested=false,transferId='',queueChanges=0,workMode='attendance',retryRound=0;
+let autoRetries={},rows=[],progress={},current=0,busy=false,stopRequested=false,transferId='',queueChanges=0,workMode='attendance',retryRound=0;
 const row=()=>rows[current];
 const completed=item=>verified(progress,item);
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
@@ -87,6 +87,13 @@ async function fillCurrentGrid(){
       status('자동입력을 중단했습니다. 현재 학생은 완료 처리하지 않았습니다. 나이스 화면을 확인하세요.');
       return;
     }
+    // 나이스 화면 갱신이 늦어 실패한 경우가 많아, 같은 학생을 잠시 뒤 최대 2번 자동으로 다시 시도합니다.
+    if(transferId===activeTransfer&&row()===item&&(autoRetries[item.queueId]||0)<2){
+      autoRetries[item.queueId]=(autoRetries[item.queueId]||0)+1;
+      $('grid-status').textContent=`${error.message}\n잠시 후 같은 학생을 다시 시도합니다(${autoRetries[item.queueId]}/2).`;
+      busy=false;await new Promise(resolve=>setTimeout(resolve,1500));
+      if(!stopRequested&&transferId===activeTransfer&&row()===item)return await fillCurrentGrid();
+    }
     if(transferId===activeTransfer&&row()===item){
       progress[item.queueId]={fields:progress[item.queueId]?.fields||[],saved:false,autoVerified:false,skipError:error.message};
       try{await persist();}catch(saveError){status('미입력 목록 동기화 실패: '+saveError.message,true);}
@@ -103,7 +110,7 @@ async function fillReport(){
 }
 function setWorkMode(mode){workMode=mode==='report'?'report':'attendance';$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateProgress();updateButtons();}
 for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(!busy)setWorkMode(button.dataset.workMode);});
-$('grid-fill').addEventListener('click',()=>{stopRequested=false;retryRound=0;return workMode==='report'?fillReport():fillCurrentGrid();});
+$('grid-fill').addEventListener('click',()=>{stopRequested=false;retryRound=0;autoRetries={};return workMode==='report'?fillReport():fillCurrentGrid();});
 $('stop-work').addEventListener('click',async()=>{
  if(!busy||stopRequested)return;
  stopRequested=true;$('stop-work').disabled=true;$('grid-status').textContent='중단 요청 중… 현재 진행 중인 작업을 멈추고 다음 학생은 처리하지 않습니다.';
@@ -120,7 +127,7 @@ async function advanceAfterSave(savedTransfer) {
       finally{busy=false;updateButtons();}
       if(transferId!==savedTransfer)return;
       status('다음 학생·날짜를 입력합니다. 실패한 건은 미입력 목록에 남깁니다.');
-      await new Promise(resolve=>setTimeout(resolve,400));
+      await new Promise(resolve=>setTimeout(resolve,1000));
       if(transferId!==savedTransfer)return;
       await fillCurrentGrid();
       return;
@@ -133,7 +140,7 @@ async function advanceAfterSave(savedTransfer) {
 }
 $('retry-pending').addEventListener('click',async()=>{
   if(busy||workMode!=='attendance')return;
-  stopRequested=false;retryRound=0;
+  stopRequested=false;retryRound=0;autoRetries={};
   const first=rows.findIndex(item=>!completed(item));if(first<0)return;
   const activeTransfer=transferId,previous=progress;busy=true;updateButtons();
   try{progress=retryProgress(rows,progress);current=first;await persist();render();busy=false;if(transferId===activeTransfer)await fillCurrentGrid();}
