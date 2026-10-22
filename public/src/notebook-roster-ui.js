@@ -28,7 +28,7 @@ export function openRosterManager({ students = [], save, onSaved, onClosed, acco
     <div class="roster-table-wrap"><table class="roster-table"><thead><tr><th>학번</th><th>이름</th><th>제외</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
     <p class="helper-note">같은 이름은 학번으로 구분합니다.</p>
     <div id="roster-error" class="form-error" role="alert"></div></div>
-    <div class="dialog-footer"><span class="save-state">${demo ? '예시 모드 · 서버 저장 없음' : '내 출결함에 저장 · 연결한 폰·PC에서 사용'}</span><button type="button" class="btn" id="roster-cancel">취소</button><button type="button" class="btn primary" id="roster-save">명렬표 저장</button></div>`;
+    <div class="dialog-footer"><span class="save-state">${demo ? '예시 모드 · 서버 저장 없음' : '저장하면 연결한 폰·PC에서 바로 보입니다'}</span><button type="button" class="btn" id="roster-cancel">취소</button><button type="button" class="btn primary" id="roster-save">명렬표 저장</button></div>`;
   document.body.append(dialog);
   const el = id => dialog.querySelector(`#${id}`);
   if (hintGrade && hintClass) { el('roster-grade').value = hintGrade; el('roster-class').value = hintClass; }
@@ -45,7 +45,7 @@ export function openRosterManager({ students = [], save, onSaved, onClosed, acco
   function updateSavedStatus(){
     const dirty=JSON.stringify(rows)!==JSON.stringify(original);
     el('roster-server-status').textContent=demo?'예시 모드 · 서버 저장 없음':`${accountId} 계정 · 서버 ${original.length}명${dirty?' · 변경 내용 저장 전':''}`;
-    el('roster-save').textContent=demo?'예시 명렬표 저장':'폰·PC에 명렬표 저장';
+    el('roster-save').textContent=demo?'예시 명렬표 저장':'명렬표 저장';
   }
   function renderRows() {
     updateSavedStatus();
