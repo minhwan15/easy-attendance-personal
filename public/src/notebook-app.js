@@ -270,11 +270,27 @@ function workspaceContent() {
   return `${top}<p class="section-caption"><span>${records.length}건의 기록</span><span>눌러서 원문 확인·수정</span></p>${records.length?`<div class="record-list">${records.map(r=>recordCard(r)).join('')}</div>`:empty(state.search||state.filter!=='all'?'해당하는 기록이 없습니다.':'아직 기록이 없습니다.',state.search||state.filter!=='all'?'검색어나 필터를 바꿔 확인해 주세요.':'캡처를 올리거나 짧은 메모부터 남겨 보세요.',!state.search&&state.filter==='all')}<p class="helper-note">불일치 시 증빙서류 기준으로 수정 요망.</p>`;
 }
 function sendQueueRecords(records,date=state.queueDate){return state.neisPurpose==='report'?reportQueueRecords(records,date):queueDateRecords(records,date);}
+/** 기록 있는 날짜를 월별 달력으로 보여 줍니다. 최근 달이 위에 옵니다. */
+function queueDateCalendar(dates,countFor) {
+  const counts=new Map(dates.map(date=>[date,countFor(date)]));
+  const months=[...new Set(dates.map(date=>date.slice(0,7)))].sort().reverse();
+  const todayValue=today();
+  return `<div class="queue-calendar">${months.map(month=>{
+    const [y,m]=month.split('-').map(Number),first=new Date(Date.UTC(y,m-1,1)).getUTCDay(),days=new Date(Date.UTC(y,m,0)).getUTCDate();
+    const cells=[...Array(first).fill(''),...Array.from({length:days},(_,i)=>`${month}-${String(i+1).padStart(2,'0')}`)];
+    while(cells.length%7)cells.push('');
+    return `<section class="queue-month"><h4>${y}년 ${m}월 <span>${[...counts].filter(([date])=>date.startsWith(month)).reduce((sum,[,n])=>sum+n,0)}건</span></h4><div class="queue-month-grid">${'일월화수목금토'.split('').map((day,i)=>`<span class="queue-weekday ${i===0||i===6?'weekend':''}">${day}</span>`).join('')}${cells.map((date,i)=>{
+      if(!date)return '<span class="queue-day empty"></span>';
+      const count=counts.get(date)||0,cls=['queue-day',i%7===0||i%7===6?'weekend':'',count?'has':'',state.queueDate===date?'selected':'',date===todayValue?'today':''].filter(Boolean).join(' ');
+      return count?`<button type="button" class="${cls}" data-queue-date="${date}" aria-label="${date} ${count}건"><b>${Number(date.slice(8))}</b><small>${count}건</small></button>`:`<span class="${cls}"><b>${Number(date.slice(8))}</b></span>`;
+    }).join('')}</div></section>`;
+  }).join('')}</div>`;
+}
 function queueContent(records) {
   const reportMode=state.neisPurpose==='report',unified=state.section==='attendance',visible=recordsForDateDisplay(records,state.queueDate).filter(record=>!reportMode||reportQueueRecords([record],state.queueDate).length);
   const ready=sendQueueRecords(records,state.queueDate);
   const dateChoices=reportMode?displayQueueDates(reportQueueRecords(records)):unified?displayQueueDates(records):queueDates(records);
-  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary><div class="queue-date-list">${dateChoices.map(date=>`<button class="btn small ${state.queueDate===date?'primary':''}" data-queue-date="${date}">${date===today()?'오늘 · ':''}${date.slice(5).replace('-','/')} · ${(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length}건</button>`).join('')}</div></details>`;
+  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary>${queueDateCalendar(dateChoices,date=>(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length)}</details>`;
   const bulkLessonTargets=unified&&state.queueDate?state.records.filter(r=>r.category==='attendance'&&r.startDate===state.queueDate&&!isPracticalRecord(r)&&!isExamRecord(r)):[];
   const storedBulkCounts=[...new Set(bulkLessonTargets.map(r=>Number(r.lessonCount)).filter(count=>Number.isInteger(count)&&count>=1&&count<=8))];
   const bulkLessonDefault=storedBulkCounts.length===1?storedBulkCounts[0]:schoolPeriodsForDate(state.queueDate).length;
