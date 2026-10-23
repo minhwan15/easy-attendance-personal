@@ -54,7 +54,7 @@ body{background:var(--paper);color:var(--ink)}.site-header{background:#fcfdf9}.b
 /* Daily overview and recoverable actions */
 .home-today{margin:20px 0;padding:22px;border:1px solid #dce5df;border-radius:20px;background:#f4f8f3}
 .home-today h2{font-size:20px;margin:0 0 14px}.home-today h2 small{font-size:14px;font-weight:400;margin-left:8px}
-.home-today-counts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.home-today-counts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
 .home-today-counts button{padding:14px 8px;border:1px solid #dce5df;border-radius:12px;background:#fff;color:#244e40;cursor:pointer;font:inherit}
 .home-today-counts strong{display:block;font-size:23px;margin-top:7px}
 .home-today-counts button:hover,.home-today-counts button:focus-visible{outline:2px solid #37745e}
@@ -63,7 +63,7 @@ body{background:var(--paper);color:var(--ink)}.site-header{background:#fcfdf9}.b
 .mobile-pc-note{display:none}
 @media(max-width:700px) and (pointer:coarse){
 .pc-tools,.neis-main-action,.neis-other-methods,#morning-neis,[data-grid-neis],.helper-note,#practical-queue{display:none!important}
-.home-today-counts{grid-template-columns:repeat(2,1fr)}
+.home-today-counts{grid-template-columns:repeat(3,1fr)}
 .home-page .morning-shortcut{min-height:90px}
 .delete-undo{flex-wrap:wrap;width:calc(100% - 24px);bottom:16px}
 .mobile-pc-note{display:block;font-size:13px;color:#61736a;margin:12px 0}

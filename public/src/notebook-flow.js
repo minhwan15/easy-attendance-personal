@@ -2,7 +2,7 @@ import { readiness, toNeisRows } from './notebook-model.js';
 import { recordsForDateDisplay } from './notebook-queue-date.js';
 export function todayAttendance(records,date){
  const rows=recordsForDateDisplay(records.filter(r=>['attendance','experience'].includes(r.category)),date);
- return {rows,counts:Object.fromEntries(['결석','지각','조퇴'].map(type=>[type,rows.filter(r=>r.attendanceType===type).length])),pending:rows.filter(r=>r.entryStatus!=='confirmed').length};
+ return {rows,counts:Object.fromEntries(['결석','지각','조퇴','결과'].map(type=>[type,rows.filter(r=>r.attendanceType===type).length])),pending:rows.filter(r=>r.entryStatus!=='confirmed').length};
 }
 export function attendanceStep(record,sent=false){
  if(record.entryStatus==='confirmed')return '나이스 입력 완료';
