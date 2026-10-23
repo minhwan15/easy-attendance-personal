@@ -10,7 +10,7 @@ import { normalizeParentReplies } from './notebook-parent-replies.js';
 import { retainedExperienceConfirmations } from './notebook-experience-grid-model.js';
 import { emptyRecord, normalizeRecord, parseSourceText, parseConversationCandidates, contentReadiness, readiness, experienceStatus, toNeisRows, exportCsv, parsePeriods, withAttendanceMeetings, ATTENDANCE_TYPES, REASON_TYPES } from './notebook-model.js';
 import { todaySeoul } from './model.js';
-import { schoolPeriodsForDate, formatSchoolPeriods, missedPeriods, lessonPeriodNumbers } from './school-timetable.js';
+import { seoulNow, schoolPeriodsForDate, formatSchoolPeriods, missedPeriods, lessonPeriodNumbers } from './school-timetable.js';
 import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
@@ -33,7 +33,9 @@ import { mountMorning } from './notebook-morning-ui.js';
 import { isMorningRecord } from './notebook-morning-model.js';
 import { mountPractical } from './notebook-practical-ui.js';
 const sectionParam=new URLSearchParams(location.search).get('section');
-const initialSection=['attendance','experience','practical','morning'].includes(sectionParam)?sectionParam:'home';
+// 아침 7:00~9:10(서울 시각)에 앱을 열면 아침 출결 메모부터 보여 줍니다. 주소에 화면을 지정했으면 그 화면을 엽니다.
+const morningHours=()=>{const time=seoulNow().time;return time>='07:00'&&time<='09:10';};
+const initialSection=['attendance','experience','practical','morning'].includes(sectionParam)?sectionParam:morningHours()?'morning':'home';
 const pairing=new URLSearchParams(location.hash.slice(1)).get('connect');if(pairing){sessionStorage.setItem('easy-pair-pending',pairing);history.replaceState(null,'',location.pathname+location.search);}
 
 const app = document.querySelector('#notebook-app');
