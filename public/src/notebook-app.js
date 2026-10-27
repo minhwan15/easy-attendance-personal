@@ -945,8 +945,11 @@ async function syncSharedNotebook(){
 }
 window.addEventListener('focus',()=>syncNeisCompletions().finally(syncSharedNotebook));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNeisCompletions().finally(syncSharedNotebook);});
-setInterval(syncNeisCompletions,8000);
-setInterval(syncSharedNotebook,15000);
+setInterval(syncNeisCompletions,8000); // 나이스 도우미와 기기 안에서만 확인(서버 호출 없음)
+// 공용 수첩 서버 확인은 1분마다. 10분 넘게 조작이 없으면 5분마다만 확인합니다.
+let notebookLastActive=Date.now(),notebookLastPoll=Date.now();
+['pointerdown','keydown','wheel','touchstart'].forEach(type=>addEventListener(type,()=>{notebookLastActive=Date.now();},{passive:true}));
+setInterval(()=>{const gap=Date.now()-notebookLastActive>600000?300000:60000;if(Date.now()-notebookLastPoll<gap)return;notebookLastPoll=Date.now();syncSharedNotebook();},20000);
 
 
 

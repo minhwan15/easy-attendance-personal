@@ -365,7 +365,11 @@ async function login(event) {
   finally{password='';state.busy=false;render();}
 }
 async function init(){render();try{const result=await api('/api/session');if(!result.authenticated){location.replace('/notebook.html');return;}state.configured=true;state.authenticated=true;state.notebookAuthenticated=true;const data=await api('/api/calendar');acceptShared(data);state.month=state.data.defaultMonth;chooseDay();}catch(e){state.error=e.message;}state.checking=false;render();}
-setInterval(()=>refreshShared(),30000);
+// 서버 확인은 2분마다. 10분 넘게 아무 조작이 없으면(교실 화면에 띄워 둔 경우 등) 5분마다만 확인합니다.
+// 탭이 숨겨져 있으면 refreshShared가 스스로 건너뛰고, 탭으로 돌아오면 바로 한 번 새로고침합니다.
+let calendarLastActive=Date.now(),calendarLastPoll=Date.now();
+['pointerdown','keydown','wheel','touchstart'].forEach(type=>addEventListener(type,()=>{calendarLastActive=Date.now();},{passive:true}));
+setInterval(()=>{const gap=Date.now()-calendarLastActive>600000?300000:120000;if(Date.now()-calendarLastPoll<gap)return;calendarLastPoll=Date.now();refreshShared();},20000);
 window.addEventListener('focus',()=>refreshShared());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShared();});
 init();
