@@ -1,10 +1,15 @@
 import { emptyRecord, normalizeRecord, parseSourceText, contentReadiness } from './notebook-model.js';
+import { classifyCondolence } from './notebook-condolence.js';
+// 명백한 미인정 사유(늦잠·무단 등)가 아니면 기본은 질병, 경조사는 출석인정.
+const UNEXCUSED=/(?:늦잠|늦게\s*일어|무단|개인\s*사정|버스|교통|연락\s*(?:두절|안\s*됨)|가출|잠수)/;
 import { missedPeriods } from './school-timetable.js';
 export const MORNING_MARK='[아침 출결 메모]';
 export const isMorningRecord=record=>record.category==='attendance'&&String(record.note||'').startsWith(MORNING_MARK);
 export function morningReasonType(reason,attendanceType){
+  if(classifyCondolence(reason))return '출석인정';
   const parsed=parseSourceText(`${reason} ${attendanceType}하겠습니다`).fields;
-  return parsed.reasonType||'미인정';
+  if(parsed.reasonType)return parsed.reasonType;
+  return UNEXCUSED.test(String(reason||''))?'미인정':'질병';
 }
 export const MORNING_TYPES=['결석','지각','조퇴'];
 export const morningTime=(record,label)=>new RegExp(label+' (\\d\\d:\\d\\d)').exec(record?.note||'')?.[1]||'';
@@ -15,7 +20,7 @@ export function makeMorningRecord({student,reason,attendanceType,date,reasonType
   const record=normalizeRecord({...emptyRecord(),...(previous||{}),id:id||previous?.id,studentId:student.studentId,studentName:student.studentName||student.name,
     category:'attendance',sourceType:'memo',startDate:date,endDate:date,attendanceDates:[],attendanceType,
     reasonType:reasonType||morningReasonType(reason,attendanceType),reason:String(reason).trim(),periods:'',
-    note:`${MORNING_MARK}${attendanceType==='지각'&&arrivalTime?` 등교 ${arrivalTime}`:''}${attendanceType==='조퇴'&&departureTime?` 하교 ${departureTime}`:''}`,sourceText:`${student.studentName||student.name} · ${reason} · ${attendanceType}`,
+    note:`${MORNING_MARK}${attendanceType==='지각'&&arrivalTime?` 등교 ${arrivalTime}`:''}${attendanceType==='조퇴'&&departureTime?` 하교 ${departureTime}`:''}${(()=>{const c=classifyCondolence(reason);return c&&(reasonType||morningReasonType(reason,attendanceType))==='출석인정'?` ${c.note}`:''})()}`,sourceText:`${student.studentName||student.name} · ${reason} · ${attendanceType}`,
     entryStatus:'pending',neisConfirmedDates:[],passKind:'',departureTime:'',returnTime:'',actualReturnTime:'',passIssuedAt:''});
   if(attendanceType==='지각'&&arrivalTime){const derived=missedPeriods({kind:'late',date,arrivalTime});if(!derived.valid)throw new Error(derived.error);record.periods=derived.text;}
   if(attendanceType==='조퇴'&&departureTime){const derived=missedPeriods({kind:'early',date,departureTime});if(!derived.valid)throw new Error(derived.error);if(!derived.periods.length)throw new Error('하교 시각이 마지막 교시 이후입니다. 시각을 확인해 주세요.');record.periods=derived.text;}
@@ -31,3 +36,5 @@ export function markMorningDeparture(record,time){
   if(!isMorningRecord(record)||record.attendanceType!=='조퇴')throw new Error('조퇴 메모를 확인해 주세요.');
   return makeMorningRecord({student:record,reason:record.reason,attendanceType:'조퇴',date:record.startDate,reasonType:record.reasonType,departureTime:time,id:record.id,previous:record});
 }
+
+export const morningCondolence=reason=>classifyCondolence(reason);

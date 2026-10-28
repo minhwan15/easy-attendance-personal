@@ -1,6 +1,6 @@
 import { bindStudentMatcher, exactStudent } from './student-matcher.js';
 import { normalizeParentReplies } from './notebook-parent-replies.js';
-import { morningReasonType,makeMorningRecord,markMorningArrival,markMorningDeparture,isMorningRecord,morningTime } from './notebook-morning-model.js';
+import { morningReasonType,morningCondolence,makeMorningRecord,markMorningArrival,markMorningDeparture,isMorningRecord,morningTime } from './notebook-morning-model.js';
 import { readiness } from './notebook-model.js';
 import { seoulNow } from './school-timetable.js';
 export function mountMorning({root,students,records,today,escape,save,onSaved,onNeis,onRoster,notify,replies,saveReplies}){
@@ -35,7 +35,7 @@ export function mountMorning({root,students,records,today,escape,save,onSaved,on
     root.querySelectorAll('[data-morning-type]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.morningType===type)));
     el('morning-arrival-label').hidden=type!=='지각';el('morning-departure-label').hidden=type!=='조퇴';
     if(autoReason)el('morning-reason-type').value=morningReasonType(el('morning-reason').value,type);
-    el('morning-result').textContent=`${el('morning-reason-type').value} ${type}${type==='지각'&&!el('morning-arrival').value?' · 등교하면 ‘등교 확인’':''}${type==='조퇴'&&!el('morning-departure').value?' · 하교하면 ‘하교 확인’':''}`;
+    {const c=morningCondolence(el('morning-reason').value);el('morning-result').textContent=`${el('morning-reason-type').value} ${type}${type==='지각'&&!el('morning-arrival').value?' · 등교하면 ‘등교 확인’':''}${type==='조퇴'&&!el('morning-departure').value?' · 하교하면 ‘하교 확인’':''}${c&&el('morning-reason-type').value==='출석인정'?` · ${c.note}`:''}`;}
   }
   bindStudentMatcher({inputs:[el('morning-name')],students:()=>students,onSelect:student=>{el('morning-name').value=student.studentId+' '+student.studentName;dirty=true;el('morning-reason').focus();}});
 

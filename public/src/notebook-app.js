@@ -16,6 +16,7 @@ import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
 import { openSettings } from './notebook-settings-ui.js';
 import { reasonShortcuts } from './notebook-reason-shortcuts.js';
+import { condolenceExtension } from './notebook-condolence.js';
 import { openPassEditor } from './notebook-pass-ui.js';
 import { PASS_LABELS } from './notebook-pass-model.js';
 import { academicYear } from './notebook-experience-usage.js';
@@ -825,7 +826,7 @@ function confirmRepeatReason(record,previous){
   const warnings=findRepeatWarnings({record,records:state.records,phrases:warningPhrasesFor(state.experienceSettings)});
   if(warnings.length&&!confirm(repeatWarningMessage(record,warnings)))throw new Error('같은 달 반복 사유 확인으로 저장을 취소했습니다. 출결 구분을 확인한 뒤 다시 저장해 주세요.');
 }
-async function persistRecord(record,previous) {
+async function saveRecordOnce(record,previous) {
   confirmRepeatReason(record,previous);
   if(isExamRecord(record))previous=savedRecords.find(r=>r.id===record.id)||null;
   recordWrites++;
@@ -835,6 +836,18 @@ async function persistRecord(record,previous) {
   accept(await api({record,before:previous},'PATCH'));
   return state.records.find(saved=>saved.id===record.id);
   } finally {recordWrites--;}
+}
+/** 경조사 출석인정 결석을 하루만 저장하면, 주말·공휴일을 뺀 인정 일수만큼 이어서 입력할지 묻습니다. */
+async function persistRecord(record,previous) {
+  const saved=await saveRecordOnce(record,previous);
+  const changed=!previous||['reason','reasonType','attendanceType','startDate'].some(key=>String(previous[key]||'')!==String(saved?.[key]||''));
+  const offer=saved&&changed?condolenceExtension(saved,state.experienceSettings.blockedDates):null;
+  if(!offer)return saved;
+  const label=date=>`${Number(date.slice(5,7))}/${Number(date.slice(8))}(${'일월화수목금토'[new Date(date+'T12:00:00Z').getUTCDay()]})`;
+  if(!confirm(`${saved.studentName||saved.studentId} · ${saved.reason}\n경조사(${offer.rule.group} 사망) 출석인정 ${offer.rule.days}일\n\n주말·공휴일을 빼고 ${offer.dates.map(label).join(', ')}\n${offer.rule.days}일을 모두 결석으로 입력할까요?\n\n[확인] 예 · [취소] 아니요(이 날짜만)`))return saved;
+  const extended={...saved,endDate:offer.dates.at(-1),attendanceDates:offer.dates,reviewStatus:saved.reviewStatus,entryStatus:'pending',neisConfirmedDates:saved.neisConfirmedDates||[]};
+  try{const result=await saveRecordOnce(extended,saved);toast(`${offer.rule.days}일(${label(offer.dates[0])}~${label(offer.dates.at(-1))})을 출석인정 결석으로 입력했습니다.`);return result;}
+  catch(error){toast('이어서 입력하지 못했습니다. '+error.message);return saved;}
 }
 async function deleteRecord() {
   if(!before||!confirm(`${before.studentName||'이 학생'}의 기록을 삭제할까요? 삭제 직후 ‘삭제 취소’로 복구할 수 있습니다.`))return;
