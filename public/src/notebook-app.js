@@ -16,7 +16,7 @@ import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
 import { openSettings } from './notebook-settings-ui.js';
 import { reasonShortcuts } from './notebook-reason-shortcuts.js';
-import { condolenceExtension } from './notebook-condolence.js';
+import { condolenceStart, condolenceFollowup, CONDOLENCE_RETURNED } from './notebook-condolence.js';
 import { openPassEditor } from './notebook-pass-ui.js';
 import { PASS_LABELS } from './notebook-pass-model.js';
 import { academicYear } from './notebook-experience-usage.js';
@@ -123,7 +123,7 @@ function profileLabel() { const username=String(state.user?.username||'');return
 function header() {
  return `<header class="site-header"><div class="header-inner"><a class="brand" href="/notebook.html"><span class="personal-brand-mark" aria-hidden="true"><img src="/favicon.svg" alt="" width="52" height="52"></span><span class="personal-brand-copy"><span class="brand-kicker">EASY ATTENDANCE</span><span class="brand-title">쉬운출결<span class="brand-edition">PERSONAL</span></span><span class="brand-sub">${esc(state.profile?.schoolName||'담임 개인용')}${state.profile?` · ${state.profile.grade}학년 ${state.profile.classNumber}반`:''}</span></span></a><div class="header-actions"><button class="btn small" id="go-home">홈으로</button>${state.user?`<button class="text-btn roster-btn" id="open-roster">명렬표 ${state.students.length}명</button><button class="text-btn roster-btn" id="open-settings" type="button">경고 문구</button><button class="btn small personal-setup-btn" id="personal-settings">내 기기 연결 · 설정</button><button class="text-btn" id="logout">이 기기 연결 해제</button>`:''}</div></div></header>`;
 }
-function renderAuth(){renderPersonalAuth({app,header:header(),error:state.error,onConnected:result=>{accept(result);state.error='';render();}});}
+function renderAuth(){renderPersonalAuth({app,header:header(),error:state.error,onConnected:result=>{accept(result);state.error='';render();setTimeout(checkCondolenceFollowups,800);}});}
 function counts() {
   const scoped=state.records.filter(r=>state.section==='practical'?isPracticalRecord(r):state.section==='experience'?r.category==='experience':['attendance','experience'].includes(r.category));
   const experience=scoped.filter(r=>r.category==='experience');
@@ -837,18 +837,39 @@ async function saveRecordOnce(record,previous) {
   return state.records.find(saved=>saved.id===record.id);
   } finally {recordWrites--;}
 }
-/** 경조사 출석인정 결석을 하루만 저장하면, 주말·공휴일을 뺀 인정 일수만큼 이어서 입력할지 묻습니다. */
+/** 경조사 출석인정 결석을 처음 저장하면 인정 일수를 안내하고, 다음 수업일부터는 앱을 열 때마다 이어지는지 묻습니다. */
 async function persistRecord(record,previous) {
   const saved=await saveRecordOnce(record,previous);
   const changed=!previous||['reason','reasonType','attendanceType','startDate'].some(key=>String(previous[key]||'')!==String(saved?.[key]||''));
-  const offer=saved&&changed?condolenceExtension(saved,state.experienceSettings.blockedDates):null;
-  if(!offer)return saved;
-  const label=date=>`${Number(date.slice(5,7))}/${Number(date.slice(8))}(${'일월화수목금토'[new Date(date+'T12:00:00Z').getUTCDay()]})`;
-  if(!confirm(`${saved.studentName||saved.studentId} · ${saved.reason}\n경조사(${offer.rule.group} 사망) 출석인정 ${offer.rule.days}일\n\n주말·공휴일을 빼고 ${offer.dates.map(label).join(', ')}\n${offer.rule.days}일을 모두 결석으로 입력할까요?\n\n[확인] 예 · [취소] 아니요(이 날짜만)`))return saved;
-  const extended={...saved,endDate:offer.dates.at(-1),attendanceDates:offer.dates,reviewStatus:saved.reviewStatus,entryStatus:'pending',neisConfirmedDates:saved.neisConfirmedDates||[]};
-  try{const result=await saveRecordOnce(extended,saved);toast(`${offer.rule.days}일(${label(offer.dates[0])}~${label(offer.dates.at(-1))})을 출석인정 결석으로 입력했습니다.`);return result;}
-  catch(error){toast('이어서 입력하지 못했습니다. '+error.message);return saved;}
+  const start=saved&&changed?condolenceStart(saved):null;
+  if(start)setTimeout(()=>toast(`경조사 출석인정 최대 ${start.rule.days}일 · 다음 수업일부터 앱을 열면 계속 결석인지 물어봅니다.`),1600);
+  return saved;
 }
+const dayLabel=date=>`${Number(date.slice(5,7))}/${Number(date.slice(8))}(${'일월화수목금토'[new Date(date+'T12:00:00Z').getUTCDay()]})`;
+const askedCondolence=new Set();let condolenceBusy=false;
+/** 하루에 한 번(기록·날짜별) 묻습니다. 예: 그 날짜까지 결석 추가 · 아니요: 등교한 것으로 보고 더 묻지 않음. */
+async function checkCondolenceFollowups(){
+  if(condolenceBusy||!state.user||document.visibilityState==='hidden'||document.querySelector('dialog[open]'))return;
+  condolenceBusy=true;
+  try{
+    const now=today();
+    for(const record of [...state.records]){
+      const follow=condolenceFollowup(record,now,state.experienceSettings.blockedDates);
+      if(!follow)continue;
+      const key=`${record.id}|${follow.pending.at(-1)}`;
+      if(askedCondolence.has(key))continue;askedCondolence.add(key);
+      const used=follow.recorded.length;
+      const yes=confirm(`${record.studentName||record.studentId} · ${record.reason}\n경조사 출석인정 ${follow.rule.days}일 중 ${used}일 입력됨 (${dayLabel(follow.recorded[0])}~${dayLabel(follow.recorded.at(-1))})\n\n${follow.pending.map(dayLabel).join(', ')}도 출석인정 결석으로 입력할까요?\n\n[확인] 예 · [취소] 아니요(등교함 · 더 묻지 않기)`);
+      const latest=state.records.find(item=>item.id===record.id);if(!latest)continue;
+      try{
+        if(yes){const dates=[...follow.recorded,...follow.pending];await saveRecordOnce({...latest,endDate:dates.at(-1),attendanceDates:dates,entryStatus:'pending'},latest);toast(`${latest.studentName} ${follow.pending.map(dayLabel).join(', ')} 결석을 추가했습니다 (${dates.length}/${follow.rule.days}일).`);}
+        else{await saveRecordOnce({...latest,note:[latest.note,CONDOLENCE_RETURNED].filter(Boolean).join(' ')},latest);toast(`${latest.studentName} 경조사 결석을 ${used}일로 마쳤습니다.`);}
+      }catch(error){toast('경조사 결석을 이어서 저장하지 못했습니다. '+error.message);}
+    }
+    render();
+  }finally{condolenceBusy=false;}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(checkCondolenceFollowups,800);});
 async function deleteRecord() {
   if(!before||!confirm(`${before.studentName||'이 학생'}의 기록을 삭제할까요? 삭제 직후 ‘삭제 취소’로 복구할 수 있습니다.`))return;
   const record=clone(before);const button=document.querySelector('#delete-record');button.disabled=true;
@@ -918,8 +939,8 @@ function demoRecords() {
   ];
 }
 async function boot() {
-  if(demo){state.user={username:'demo',displayName:'예시담임'};state.records=demoRecords();render();return;}
-  try{accept(await api());render();}catch(error){state.error=error.status===401?'':error.message;renderAuth();}
+  if(demo){state.user={username:'demo',displayName:'예시담임'};state.records=demoRecords();render();setTimeout(checkCondolenceFollowups,800);return;}
+  try{accept(await api());render();setTimeout(checkCondolenceFollowups,800);}catch(error){state.error=error.status===401?'':error.message;renderAuth();}
 }
 boot();
 

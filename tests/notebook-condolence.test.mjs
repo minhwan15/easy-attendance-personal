@@ -25,14 +25,21 @@ test('아침 메모 기본은 질병, 경조사는 출석인정, 명백한 미�
   assert.match(r.note, /^\[아침 출결 메모\].*출석인정 5일/);
 });
 
-test('경조사 인정 일수는 주말·공휴일·제외 날짜를 빼고 이어서 고릅니다', async () => {
-  const { schoolDaysFrom, condolenceExtension } = await import('../public/src/notebook-condolence.js');
+test('경조사 인정 일수는 주말·공휴일·제외 날짜를 빼고, 매일 이어서 물어봅니다', async () => {
+  const { schoolDaysFrom, condolenceFollowup, condolenceStart, CONDOLENCE_RETURNED } = await import('../public/src/notebook-condolence.js');
   assert.deepEqual(schoolDaysFrom('2026-10-28', 5), ['2026-10-28', '2026-10-29', '2026-10-30', '2026-11-02', '2026-11-03']);
   assert.deepEqual(schoolDaysFrom('2026-10-07', 3), ['2026-10-07', '2026-10-08', '2026-10-12'], '10/9 한글날 제외');
   assert.deepEqual(schoolDaysFrom('2026-10-28', 2, ['2026-10-29']), ['2026-10-28', '2026-10-30']);
   const base = { category: 'attendance', attendanceType: '결석', reasonType: '출석인정', reason: '조부상', startDate: '2026-10-28', endDate: '2026-10-28', attendanceDates: [] };
-  assert.equal(condolenceExtension(base).dates.length, 5);
-  assert.equal(condolenceExtension({ ...base, reason: '삼촌 장례' }).dates.length, 3);
-  assert.equal(condolenceExtension({ ...base, reasonType: '질병' }), null);
-  assert.equal(condolenceExtension({ ...base, endDate: '2026-11-03', attendanceDates: ['2026-10-28', '2026-10-29'] }), null, '이미 여러 날이면 묻지 않음');
+  assert.equal(condolenceStart(base).rule.days, 5);
+  assert.equal(condolenceFollowup(base, '2026-10-28'), null, '첫날에는 묻지 않음');
+  assert.deepEqual(condolenceFollowup(base, '2026-10-29').pending, ['2026-10-29']);
+  assert.deepEqual(condolenceFollowup(base, '2026-10-30').pending, ['2026-10-29', '2026-10-30'], '앱을 못 연 날도 함께');
+  const two = { ...base, endDate: '2026-10-29', attendanceDates: ['2026-10-28', '2026-10-29'] };
+  assert.deepEqual(condolenceFollowup(two, '2026-11-02').pending, ['2026-10-30', '2026-11-02']);
+  const full = { ...base, endDate: '2026-11-03', attendanceDates: schoolDaysFrom('2026-10-28', 5) };
+  assert.equal(condolenceFollowup(full, '2026-11-04'), null, '인정 일수를 다 쓰면 끝');
+  assert.equal(condolenceFollowup({ ...base, note: CONDOLENCE_RETURNED }, '2026-10-29'), null, '등교하면 더 묻지 않음');
+  assert.equal(condolenceFollowup({ ...base, reasonType: '질병' }, '2026-10-29'), null);
+  assert.equal(condolenceFollowup({ ...base, reason: '삼촌 장례' }, '2026-11-02').pending.length, 2, '3일 인정');
 });

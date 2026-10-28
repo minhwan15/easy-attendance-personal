@@ -48,14 +48,28 @@ export function schoolDaysFrom(start, count, blocked = []) {
   return dates;
 }
 
-/** 경조사 출석인정 결석 하루만 저장했을 때, 인정 일수만큼 이어서 입력할지 물어볼 내용. */
-export function condolenceExtension(record, blocked = []) {
+export const CONDOLENCE_RETURNED = '[경조사 등교]';
+const condolenceRule = record => {
   if (!record || record.category !== 'attendance' || record.attendanceType !== '결석' || record.reasonType !== '출석인정') return null;
+  if (String(record.note || '').includes(CONDOLENCE_RETURNED)) return null;
   const rule = classifyCondolence(record.reason);
-  if (!rule || rule.kind !== '사망' || rule.days < 2) return null;
-  const current = record.attendanceDates?.length ? record.attendanceDates : [record.startDate];
-  if (current.length !== 1 || (record.endDate && record.endDate !== record.startDate)) return null;
-  const dates = schoolDaysFrom(record.startDate, rule.days, blocked);
-  if (dates.length !== rule.days || dates[0] !== record.startDate) return null;
-  return { rule, dates };
+  return rule && rule.kind === '사망' && rule.days >= 2 ? rule : null;
+};
+/** 처음 저장할 때 안내할 내용: 경조사 출석인정 결석이면 인정 일수. */
+export function condolenceStart(record) {
+  const rule = condolenceRule(record);
+  const dates = record?.attendanceDates?.length ? record.attendanceDates : [record?.startDate];
+  return rule && dates.length === 1 ? { rule } : null;
+}
+/** 경조사 결석이 이어지는지 매일 물어볼 날짜: 인정 일수 안에서 기록 다음 수업일부터 오늘까지. */
+export function condolenceFollowup(record, today, blocked = []) {
+  const rule = condolenceRule(record);
+  if (!rule || !/^\d{4}-\d{2}-\d{2}$/.test(String(today))) return null;
+  const expected = schoolDaysFrom(record.startDate, rule.days, blocked);
+  if (expected[0] !== record.startDate) return null;
+  const recorded = (record.attendanceDates?.length ? record.attendanceDates : [record.startDate]).slice().sort();
+  // 기록이 인정 일수의 앞부분과 정확히 이어질 때만 묻습니다(교사가 날짜를 따로 고친 기록은 건드리지 않음).
+  if (!recorded.every((date, index) => expected[index] === date)) return null;
+  const pending = expected.slice(recorded.length).filter(date => date <= today);
+  return pending.length ? { rule, expected, recorded, pending } : null;
 }
