@@ -63,7 +63,7 @@ body{background:var(--paper);color:var(--ink)}.site-header{background:#fcfdf9}.b
 .mobile-pc-note{display:none}
 @media(max-width:700px) and (pointer:coarse){
 .pc-tools,.neis-main-action,.neis-other-methods,#morning-neis,[data-grid-neis],.helper-note,#practical-queue{display:none!important}
-.home-today-counts{grid-template-columns:repeat(3,1fr)}
+.home-today{padding:16px}.home-today-counts{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.home-today-counts button{padding:10px 2px;font-size:12px;white-space:nowrap;border-radius:10px}.home-today-counts strong{font-size:18px;margin-top:4px}
 .home-page .morning-shortcut{min-height:90px}
 .delete-undo{flex-wrap:wrap;width:calc(100% - 24px);bottom:16px}
 .mobile-pc-note{display:block;font-size:13px;color:#61736a;margin:12px 0}

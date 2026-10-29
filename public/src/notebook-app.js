@@ -169,7 +169,7 @@ function wasSent(record){
 }
 function todayHomeHtml(){
  const info=todayAttendance(state.records,today());
- return `<section class="home-today" aria-label="오늘 출결"><h2>오늘 출결 <small>${shortDate(today())}</small></h2><div class="home-today-counts">${Object.entries(info.counts).map(([type,count])=>`<button type="button" data-today-type="${type}">${type}<strong>${count}건</strong></button>`).join('')}<button type="button" data-today-type="pending">나이스 미입력<strong>${info.pending}건</strong></button></div><button class="btn small" type="button" data-today-type="all">오늘 출결 전체 보기</button></section>`;
+ return `<section class="home-today" aria-label="오늘 출결"><h2>오늘 출결 <small>${shortDate(today())}</small></h2><div class="home-today-counts">${Object.entries(info.counts).map(([type,count])=>`<button type="button" data-today-type="${type}">${type}<strong>${count}건</strong></button>`).join('')}<button type="button" data-today-type="pending" title="나이스 미입력">미입력<strong>${info.pending}건</strong></button></div><button class="btn small" type="button" data-today-type="all">오늘 출결 전체 보기</button></section>`;
 }
 function bindTodayHome(){
  document.querySelectorAll('[data-today-type]').forEach(b=>b.onclick=()=>{
