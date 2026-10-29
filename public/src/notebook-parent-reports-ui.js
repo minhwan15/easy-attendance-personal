@@ -9,7 +9,7 @@ export function openParentReports({records,today,onOpen}){
   let draft={},busy=false;
   const dialog=document.createElement('dialog');dialog.className='dialog parent-reports-dialog';
   dialog.setAttribute('aria-labelledby','parent-reports-title');
-  dialog.innerHTML='<div class="dialog-head"><div><h2 id="parent-reports-title">학부모 신고서 제출 확인</h2><p>앱 출결 기록과 나이스에서 내려받은 신고서를 대조합니다.</p></div><button class="icon-btn" type="button" data-pr-close aria-label="닫기">×</button></div><div class="parent-reports-body"><div class="parent-reports-upload"><button class="btn primary" type="button" data-pr-upload>나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple data-pr-files hidden><span>결석 / 지각·조퇴·결과 파일을 함께 선택할 수 있습니다.</span></div><p class="helper-note">나이스 신고서 관리 화면에서 조회기간과 처리상태 ‘전체’를 선택한 뒤, ‘자료 내려받기’로 받은 엑셀을 올려 주세요. 종이로 받은 신고서는 별도로 확인하세요.</p><div data-pr-sources></div><p data-pr-error class="form-error" role="alert"></p><p data-pr-note role="status">엑셀은 저장하지 않습니다. 올린 뒤 조회기간을 확인하세요.</p><button class="btn primary" type="button" data-pr-print disabled>미제출 명단 A4 1장 출력</button><div class="parent-report-source"><div data-pr-mailmerge></div><a class="btn soft" href="https://riroschool.kr/" target="_blank" rel="noopener noreferrer">리로스쿨 열기 ↗</a><p>로그인 → 알림문자 → 메일머지 문자 → 엑셀 업로드 → 학부모 체크 → 미리보기</p></div><div data-pr-results></div></div>';
+  dialog.innerHTML='<div class="dialog-head"><div><h2 id="parent-reports-title">학부모 신고서 제출 확인</h2><p>앱 출결 기록과 나이스에서 내려받은 신고서를 대조합니다.</p></div><button class="icon-btn" type="button" data-pr-close aria-label="닫기">×</button></div><div class="parent-reports-body"><div class="parent-reports-upload"><button class="btn primary" type="button" data-pr-upload>나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple data-pr-files hidden><span>결석 / 지각·조퇴·결과 파일을 함께 선택할 수 있습니다.</span></div><p class="helper-note">나이스 신고서 관리 화면에서 조회기간과 처리상태 ‘전체’를 선택한 뒤, ‘자료 내려받기’로 받은 엑셀을 올려 주세요. 종이로 받은 신고서는 별도로 확인하세요.</p><div data-pr-sources></div><p data-pr-error class="form-error" role="alert"></p><p data-pr-note role="status">엑셀은 저장하지 않습니다. 올린 뒤 조회기간을 확인하세요.</p><button class="btn primary" type="button" data-pr-print disabled>미제출 명단 상세 출력</button><div class="parent-report-source"><div data-pr-mailmerge></div><a class="btn soft" href="https://riroschool.kr/" target="_blank" rel="noopener noreferrer">리로스쿨 열기 ↗</a><p>로그인 → 알림문자 → 메일머지 문자 → 엑셀 업로드 → 학부모 체크 → 미리보기</p></div><div data-pr-results></div></div>';
   document.body.append(dialog);dialog.showModal();
   const $=selector=>dialog.querySelector(selector);
   function lock(value){busy=value;dialog.querySelectorAll('button,input').forEach(e=>e.disabled=value);if(!value){$('[data-pr-print]').disabled=!Object.keys(draft).length;const button=$('[data-pr-download]');if(button)button.disabled=!dialog.querySelector('[data-pr-recipient]:checked');}}
@@ -70,6 +70,6 @@ export function openParentReports({records,today,onOpen}){
     }catch(error){$('[data-pr-error]').textContent=error.message;}
     finally{lock(false);}
   };
-  $('[data-pr-print]').onclick=()=>{if(!busy)printParentReports(compareParentReports(records,draft,today).items,draft,today);};
+  $('[data-pr-print]').onclick=()=>{if(!busy)printParentReports(compareParentReports(records,draft,today).items,draft,today,records);};
   render();
 }

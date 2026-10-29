@@ -1,4 +1,24 @@
 @page{size:A4 portrait;margin:10mm}
-html,body{margin:0;padding:0;background:#fff}
-svg{display:block;width:190mm;height:270mm;max-width:100%}
-@media print{html,body{width:190mm;height:270mm;overflow:hidden}svg{break-inside:avoid;page-break-inside:avoid}}
+html,body{margin:0;padding:0;background:#fff;color:#111;font-family:"Malgun Gothic","Noto Sans CJK KR",sans-serif}
+header{margin-bottom:8px}
+h1{font-size:17pt;margin:0 0 4px}
+header p{margin:2px 0;font-size:9.5pt}
+header .note{color:#444;font-size:8.5pt}
+table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+thead{display:table-header-group}
+th{background:#eef2ee;font-size:8.5pt;font-weight:700;padding:5px 3px;border:1px solid #999}
+td{border:1px solid #bbb;padding:5px 4px;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}
+tr{break-inside:avoid;page-break-inside:avoid}
+tr.first td{border-top:1.6px solid #333}
+td small{color:#555;font-size:8pt}
+.check{width:8mm;text-align:center;font-size:13pt}
+.who{width:24mm}
+.date{width:18mm;text-align:center}
+.kind{width:11mm;text-align:center}
+.type{width:15mm;text-align:center}
+.periods{width:20mm;text-align:center;font-size:8.5pt}
+.reason{width:auto}
+.due{width:19mm;text-align:center}
+.memo{width:22mm}
+.empty{font-size:12pt;margin-top:20px}
+th.check{font-size:8.5pt}
