@@ -1,5 +1,7 @@
 @page{size:A4 portrait;margin:10mm}
 html,body{margin:0;padding:0;background:#fff;color:#111;font-family:"Malgun Gothic","Noto Sans CJK KR",sans-serif}
+/* 인쇄 창의 여백·배율과 관계없이 오른쪽이 잘리지 않도록 A4 인쇄 영역(190mm)보다 좁게 고정합니다. */
+body{width:184mm;max-width:100%;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 header{margin-bottom:8px}
 h1{font-size:17pt;margin:0 0 4px}
 header p{margin:2px 0;font-size:9.5pt}
@@ -12,13 +14,13 @@ tr{break-inside:avoid;page-break-inside:avoid}
 tr.first td{border-top:1.6px solid #333}
 td small{color:#555;font-size:8pt}
 .check{width:8mm;text-align:center;font-size:13pt}
-.who{width:24mm}
+.who{width:23mm}
 .date{width:18mm;text-align:center}
 .kind{width:11mm;text-align:center}
 .type{width:15mm;text-align:center}
 .periods{width:20mm;text-align:center;font-size:8.5pt}
 .reason{width:auto}
 .due{width:19mm;text-align:center}
-.memo{width:22mm}
+.memo{width:18mm}
 .empty{font-size:12pt;margin-top:20px}
 th.check{font-size:8.5pt}
