@@ -1,0 +1,76 @@
+/* 화면 배열 정리 (모바일·PC 공통). 기존 스타일 뒤에 불러와 덮어씁니다. */
+
+/* ── PC ─────────────────────────────────────────── */
+/* 빠른 작업 타일: 개수에 맞춰 빈칸 없이 한 줄 */
+.quick-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))!important}
+/* ‘이 날짜 실제 수업’ 줄: 설명 문장을 버튼과 같은 높이에 */
+.bulk-lesson-tools{align-items:center}
+.bulk-lesson-tools>p,.bulk-lesson-tools>small,.bulk-lesson-tools>span{align-self:center;margin:0}
+/* 기록 카드 오른쪽 버튼: 줄바꿈 없이 가지런히 */
+.card-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.card-right .btn,.card-right .text-btn{white-space:nowrap}
+
+/* ── 태블릿·폰 ──────────────────────────────────── */
+@media(max-width:700px){
+  /* 상단 메뉴: 두 줄로 흩어지지 않게 한 줄 가로 스크롤 알약 버튼 */
+  .header-inner{flex-wrap:wrap;gap:10px;padding:12px 16px}
+  .header-actions{width:100%;flex-wrap:nowrap!important;justify-content:flex-start!important;gap:6px!important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .header-actions::-webkit-scrollbar{display:none}
+  .header-actions>*{flex:none;white-space:nowrap}
+  .header-actions .text-btn,.header-actions .btn{border:1px solid var(--line);border-radius:99px;padding:6px 11px;min-height:32px;background:#fff;font-size:12px}
+  .header-actions .profile{display:none}
+
+  /* 기록 카드: 내용은 한 줄 전체, 버튼은 아래 줄 오른쪽 정렬 */
+  .record-card{flex-wrap:wrap;align-items:flex-start;padding:14px}
+  .record-open{flex:1 1 0;min-width:0}
+  .record-card>input[type=checkbox]{margin-top:12px}
+  .card-right{flex:1 1 100%;justify-content:flex-end;padding-top:10px;margin-top:2px;border-top:1px dashed var(--line)}
+  .card-right .btn{min-height:34px;padding:7px 11px;font-size:12px}
+  .card-right .text-btn{padding:7px 8px;font-size:12px}
+  .record-sub{flex-wrap:wrap;gap:3px 8px}
+  .record-tags{flex-wrap:wrap}
+  .record-tags .badge{white-space:nowrap}
+
+  /* 오늘 출결: 다섯 칸 한 줄 */
+  .home-today{padding:16px}
+  .home-today-counts{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px}
+  .home-today-counts button{padding:10px 2px;font-size:12px;white-space:nowrap;border-radius:10px}
+  .home-today-counts strong{font-size:18px;margin-top:4px}
+
+  /* 홈 업무 카드: 큰 빈 카드 대신 아이콘·제목·설명 한 줄 목록 */
+  .home-grid{grid-template-columns:1fr!important;gap:10px}
+  .home-card{min-height:0!important;display:grid;grid-template-columns:44px 1fr 18px;grid-template-rows:auto auto;column-gap:14px;align-items:center;padding:14px 16px!important;border-radius:16px!important}
+  .home-card-icon{grid-row:1/3;width:44px!important;height:44px!important;margin:0!important;border-radius:13px}
+  .home-card h2{font-size:17px!important;margin:0 0 2px!important;grid-column:2}
+  .home-card p{grid-column:2;font-size:12px!important;line-height:1.5}
+  .home-card-number{display:none}
+  .home-card-enter{grid-column:3;grid-row:1/3;margin:0!important;font-size:0}
+  .home-card-enter svg{width:18px;height:18px}
+
+  /* 일일출결관리 상단 요약·빠른 작업: 2칸 고르게 */
+  .summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .summary-card{padding:12px;align-items:flex-start}
+  .summary-card .summary-icon{display:none}
+  .summary-value{font-size:24px}
+  .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}
+  .quick-action{padding:12px;align-items:flex-start}
+
+  /* 나이스 작업 버튼 줄: 고른 폭 */
+  .neis-purpose-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .neis-purpose-tools .btn{width:100%;white-space:normal;line-height:1.3}
+  .neis-purpose-tools [data-parent-reports]{grid-column:1/-1}
+
+  /* 날짜·교시 도구 */
+  .queue-date-tools{gap:8px}
+  .queue-date-tools label{flex:1 1 100%}
+  .queue-date-tools input,.queue-date-tools select{max-width:none!important;width:100%}
+  .bulk-lesson-tools .btn{flex:1 1 100%}
+  .queue-calendar{grid-template-columns:1fr}
+  .queue-day{min-height:38px}
+}
+@media(max-width:700px){.quick-grid .pass-quick-action{grid-column:auto!important}}
+@media(max-width:700px){
+  .practical-existing .practical-student-heading{flex-wrap:wrap;gap:8px}
+  .practical-existing .practical-student-heading h2{flex:1 1 auto;white-space:nowrap;font-size:20px}
+  .practical-existing #practical-queue{flex:none;min-height:36px;padding:8px 12px}
+}
