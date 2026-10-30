@@ -58,3 +58,13 @@ test('timetable: unused periods may stay blank and 공강 periods need no time',
  const allFree={...profile,timetable:{counts:[0,1,0,0,0,0,0],periods,free:[[],[1],[],[],[],[],[]]}};
  assert.equal((await request(env,'personal/profile',{profile:allFree,before:saved.data.profile},a.cookie,'PATCH')).status,400);
 });
+test('학부모 문자 받은함: 연동 키로만 받고 내 출결함에서만 보임',async()=>{const {env}=database();
+ const a=await request(env,'personal/create',profile);const b=await request(env,'personal/create',profile);
+ const on=await request(env,'notebook-inbox',{action:'enable'},a.cookie);assert.equal(on.status,200,JSON.stringify(on.data));assert.match(on.data.url,/key=/);
+ const hook=async(url,body)=>handleApi(new Request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),env);
+ assert.equal((await hook(on.data.url,{from:'01012345678',text:'학생가 감기로 결석합니다'})).status,200);
+ assert.equal((await hook(on.data.url.replace(/.{4}$/,'AAAA'),{text:'위조'})).status,401);
+ const list=await request(env,'notebook-inbox',null,a.cookie);assert.equal(list.data.items.length,1);assert.equal(list.data.items[0].from,'5678');
+ assert.equal((await request(env,'notebook-inbox',null,b.cookie)).data.items.length,0);
+ await request(env,'notebook-inbox',{action:'disable'},a.cookie);assert.equal((await hook(on.data.url,{text:'끈 뒤'})).status,401);
+});

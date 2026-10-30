@@ -74,3 +74,11 @@
   .practical-existing .practical-student-heading h2{flex:1 1 auto;white-space:nowrap;font-size:20px}
   .practical-existing #practical-queue{flex:none;min-height:36px;padding:8px 12px}
 }
+.done-btn{background:var(--soft)!important;color:var(--green)!important;border-color:#b7cbb5!important;font-weight:700}
+.complete-all-row{display:flex;justify-content:flex-end;margin:0 0 10px}
+.done-records{margin-top:12px}.done-records>summary{cursor:pointer;font-size:13px;font-weight:650;color:var(--muted);padding:8px 2px}
+#sms-root-attendance .sms-inbox{margin:0 0 16px}
+/* 폰에서는 나이스 전송용 PC 도구를 숨겨 기록 목록이 바로 보이게 */
+@media(max-width:700px) and (pointer:coarse){
+  .bulk-lesson-tools,.queue-date-history+.section-info,.workspace .section-info,.neis-transfer-status{display:none!important}
+}

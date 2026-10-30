@@ -75,3 +75,25 @@ body{background:var(--paper);color:var(--ink)}.site-header{background:#fcfdf9}.b
 .eg-week-tools [data-grid-week-label]{flex-basis:100%;font-size:14px}
 .eg-approval-help{font-size:13px;line-height:1.6;margin:8px 0 14px;color:#61736a}
 @media(max-width:700px){.eg-action-tools{flex-wrap:wrap;gap:8px}.eg-action-tools button{white-space:normal;min-height:44px}.eg-approval-help{padding:0 12px}}
+/* 학부모 문자 받은함 */
+.sms-inbox{margin:0 0 18px}
+.sms-inbox[data-empty]{margin-bottom:12px}
+.sms-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+.sms-head h2{font-size:18px;margin:0}.sms-head h2 span{display:inline-grid;place-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--green);color:#fff;font-size:12px;margin-left:6px;vertical-align:2px}
+.sms-head .text-btn{color:var(--green)}
+.sms-card{border:1px solid #cfe0d3;background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.sms-card.sms-unsure{border-color:#ead7b5;background:#fffcf6}
+.sms-meta{display:flex;gap:10px;font-size:11px;color:var(--muted)}
+.sms-text{font-size:14px;line-height:1.6;margin:4px 0 6px;word-break:keep-all}
+.sms-guess{font-size:13px;font-weight:650;color:var(--green);margin:0 0 10px}.sms-unsure .sms-guess{color:#8b662d}
+.sms-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.sms-actions .btn{min-height:36px}
+.sms-empty{font-size:13px;color:var(--muted);margin:0 0 10px}
+.sms-setup{border:1px dashed var(--line);border-radius:12px;padding:10px 14px;background:#fbfcf9;font-size:13px}
+.sms-setup>summary{cursor:pointer;font-weight:700;color:var(--green);font-size:13px}
+.sms-setup p{margin:8px 0;line-height:1.6;word-break:keep-all}
+.sms-help{font-size:12px;color:var(--muted)}.sms-warn{font-size:12px;color:#b4412f}
+.sms-url{display:flex;gap:6px}.sms-url input{flex:1;font-size:11px}
+.sms-guide{margin:8px 0}.sms-guide summary{cursor:pointer;font-size:12px;font-weight:650}
+.sms-guide h4{font-size:13px;margin:10px 0 4px}.sms-guide ol{padding-left:18px;margin:0;font-size:12px;line-height:1.7}
+.sms-guide code{font-size:11px;background:#eef2ee;padding:1px 4px;border-radius:4px;word-break:break-all}
