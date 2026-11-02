@@ -13,5 +13,8 @@ export function dailyExamRecords(events,username,students=[]) {
 export function mergeDailyRecords(saved,exams) {
  if(!exams)return saved;
  const byId=new Map(saved.map(r=>[r.id,r]));
- return [...saved.filter(r=>!isExamRecord(r)),...exams.map(exam=>{const previous=byId.get(exam.id);return previous&&exam.reviewStatus==='reviewed'&&signature(previous)===signature(exam)?{...exam,entryStatus:previous.entryStatus,neisConfirmedDates:previous.neisConfirmedDates||[]}:exam;})];
+ return [...saved.filter(r=>!isExamRecord(r)),...exams.map(exam=>{const previous=byId.get(exam.id);
+  // 확인 전 후보라도 교사가 ‘입력 완료’로 표시했으면(같은 학생·기간) 그 상태를 유지합니다.
+  if(previous&&exam.reviewStatus!=='reviewed'&&previous.entryStatus==='confirmed'&&previous.studentId===exam.studentId&&previous.startDate===exam.startDate&&previous.endDate===exam.endDate)return {...exam,reviewStatus:'reviewed',entryStatus:'confirmed',note:previous.note||exam.note};
+  return previous&&exam.reviewStatus==='reviewed'&&signature(previous)===signature(exam)?{...exam,entryStatus:previous.entryStatus,neisConfirmedDates:previous.neisConfirmedDates||[]}:exam;})];
 }
