@@ -138,10 +138,10 @@ function summaryDetailsHtml() {
  const kind=state.summaryKind;if(!kind)return '';
  const title={review:'보완할 기록',ready:'나이스 입력 준비',overdue:'기한 지난 미제출 보고서'}[kind];
  const records=state.records.filter(r=>state.section==='practical'?isPracticalRecord(r):state.section==='experience'?r.category==='experience':['attendance','experience'].includes(r.category)).filter(r=>kind==='review'?r.reviewStatus!=='reviewed':kind==='ready'?r.entryStatus!=='confirmed'&&readiness(r).ready:r.category==='experience'&&experienceStatus(r,today()).overdue);
- return `<section class="section-info" id="summary-details" aria-label="${title} 상세"><h2 style="font-size:18px;margin:0 0 12px">${title} · ${records.length}건</h2><p class="muted">현재 날짜 선택과 관계없이 전체 저장 기록 기준입니다.</p>${records.length?records.map(r=>{
+ return `<section class="section-info summary-details" id="summary-details" aria-label="${title} 상세"><div class="summary-details-head"><h2>${title} · ${records.length}건</h2>${kind==='ready'&&records.length>1?`<button class="btn small done-btn" type="button" data-summary-done-all='${esc(JSON.stringify(records.map(r=>r.id)))}'>✓ ${records.length}건 모두 입력 완료</button>`:''}</div><p class="muted">날짜 선택과 관계없이 전체 기록 기준 · 나이스에 이미 입력했다면 ‘✓ 입력 완료’를 누르세요.</p>${records.length?records.map(r=>{
  const errors=readiness(r).errors;
  const reason=kind==='review'?(errors.length?errors.join(' · '):'입력 내용 확인 후 저장이 필요합니다.'):kind==='ready'?`입력 내용 확인 완료 · 나이스 미입력 ${toNeisRows([r]).length}일`:`보고서 제출 기한 ${r.reportDueDate} 경과 · 보고서 미제출`;
- return `<article style="padding:14px 0;border-top:1px solid #dce5df"><strong>${esc(r.studentName||'학생 미지정')} ${esc(r.studentId)}</strong> · ${rangeLabel(r)}<p style="margin:6px 0">${isExamRecord(r)?'대학별고사':isPracticalRecord(r)?'예체능 미인정 조퇴':labels[r.category]||'기록'} · ${esc(r.reason||r.note||'내용 미작성')}</p><p style="margin:6px 0;font-size:13px">${esc(reason)}${r.category==='experience'&&['cancelled','rejected'].includes(r.approvalStatus)?' · '+esc(experienceStatus(r,today()).label):''}</p><button class="btn small" type="button" data-fix="${esc(r.id)}">${nextAttendanceAction(r).label}</button></article>`;
+ return `<article class="summary-row"><div class="summary-row-main"><strong>${esc(r.studentName||'학생 미지정')} <small>${esc(r.studentId)}</small></strong><span>${rangeLabel(r)} · ${esc(r.attendanceType||'')} · ${esc(r.reason||r.note||'내용 미작성')}</span><small>${esc(reason)}${r.category==='experience'&&['cancelled','rejected'].includes(r.approvalStatus)?' · '+esc(experienceStatus(r,today()).label):''}</small></div><div class="summary-row-actions">${kind==='ready'&&['attendance','experience'].includes(r.category)?`<button class="btn small done-btn" type="button" data-summary-done="${esc(r.id)}">✓ 입력 완료</button>`:''}<button class="btn small" type="button" data-fix="${esc(r.id)}">${kind==='ready'?'열기':nextAttendanceAction(r).label}</button></div></article>`;
  }).join(''):'<p>해당 기록이 없습니다.</p>'}</section>`;
 }
 function changeSection(section){
@@ -353,6 +353,8 @@ function bindRecordDelete(root=document) {
 function bindWorkspace() {
   document.querySelector('[data-parent-reports]')?.addEventListener('click',()=>openParentReports({records:state.records,today:today(),onOpen:openEditor}));
   document.querySelectorAll('[data-neis-purpose]').forEach(button=>button.onclick=()=>{state.neisPurpose=button.dataset.neisPurpose;state.filter='all';state.todayType='';state.selected.clear();render();});
+  document.querySelectorAll('[data-summary-done]').forEach(b=>b.onclick=async()=>{b.disabled=true;await confirmEntry(b.dataset.summaryDone,{date:''});toast('입력 완료로 바꿨습니다. 되돌리려면 기록의 ‘미입력으로 되돌리기’를 누르세요.');});
+  document.querySelector('[data-summary-done-all]')?.addEventListener('click',async event=>{const ids=JSON.parse(event.currentTarget.dataset.summaryDoneAll||'[]');if(!ids.length||!confirm(`나이스 입력 준비 ${ids.length}건을 모두 입력 완료로 바꿀까요?\n(나이스에 실제로 입력한 경우에만 누르세요)`))return;event.currentTarget.disabled=true;for(const id of ids)await confirmEntry(id,{date:''});toast(`${ids.length}건을 입력 완료로 바꿨습니다.`);render();});
   document.querySelectorAll('[data-fix]').forEach(b=>b.onclick=()=>afterGridSave(()=>{
    const r=state.records.find(x=>x.id===b.dataset.fix);if(!r)return;
    const action=nextAttendanceAction(r);

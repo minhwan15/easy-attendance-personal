@@ -82,3 +82,12 @@
 @media(max-width:700px) and (pointer:coarse){
   .bulk-lesson-tools,.queue-date-history+.section-info,.workspace .section-info,.neis-transfer-status{display:none!important}
 }
+.summary-details-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.summary-details-head h2{font-size:18px;margin:0}
+.summary-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #dce5df}
+.summary-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.summary-row-main strong{font-size:14px}.summary-row-main strong small{font-weight:500;color:var(--muted);margin-left:4px}
+.summary-row-main span{font-size:13px;color:#3f5248;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.summary-row-main>small{font-size:11px;color:var(--muted)}
+.summary-row-actions{display:flex;gap:6px;flex:none}
+@media(max-width:700px){.summary-row{flex-wrap:wrap}.summary-row-actions{flex:1 1 100%;justify-content:flex-end}}
