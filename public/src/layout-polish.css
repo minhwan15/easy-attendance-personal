@@ -64,7 +64,7 @@
   .queue-date-tools{gap:8px}
   .queue-date-tools label{flex:1 1 100%}
   .queue-date-tools input,.queue-date-tools select{max-width:none!important;width:100%}
-  .bulk-lesson-tools .btn{flex:1 1 100%}
+  .bulk-lesson-tools{display:grid!important;grid-template-columns:1fr auto;gap:6px 8px;align-items:end}.bulk-lesson-tools label{flex:none!important}.bulk-lesson-tools small{grid-column:1/-1;font-size:11px;color:var(--muted)}
   .queue-calendar{grid-template-columns:1fr}
   .queue-day{min-height:38px}
 }
@@ -80,7 +80,7 @@
 #sms-root-attendance .sms-inbox{margin:0 0 16px}
 /* 폰에서는 나이스 전송용 PC 도구를 숨겨 기록 목록이 바로 보이게 */
 @media(max-width:700px) and (pointer:coarse){
-  .bulk-lesson-tools,.queue-date-history+.section-info,.workspace .section-info,.neis-transfer-status{display:none!important}
+  .queue-date-history+.section-info,.workspace .section-info,.neis-transfer-status{display:none!important}
 }
 .summary-details-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .summary-details-head h2{font-size:18px;margin:0}

@@ -6,6 +6,18 @@ export const SCHOOL_PERIODS = Object.freeze(
 const minuteOfDay = value => typeof value==='string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)
   ? Number(value.slice(0,2))*60+Number(value.slice(3)) : null;
 
+/** 날짜별 수업 교시(시간표 변동일). */
+let dayLessons = {};
+export function setDayLessons(input) {
+  const next = {};
+  if (input && typeof input === 'object') for (const [date, value] of Object.entries(input)) if (/^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isInteger(value) && value >= 1 && value <= 8) next[date] = value;
+  dayLessons = next; return { ...next };
+}
+/** 내 출결함 설정의 요일별 수업 수(날짜 변경 전). */
+export function weekdayLessonCount(date) {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return 0;
+  const counts = globalThis.easyProfile?.timetable?.counts; return Array.isArray(counts) ? Number(counts[new Date(`${date}T00:00:00Z`).getUTCDay()]) || 0 : 0;
+}
 /** Only the weekday timetable is known. Weekend lessons require an explicit teacher choice. */
 export function schoolPeriodsForDate(date, lessonCount = 0) {
   if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))return [];
@@ -13,7 +25,7 @@ export function schoolPeriodsForDate(date, lessonCount = 0) {
   if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return [];
   const weekday=parsed.getUTCDay(),settings=globalThis.easyProfile?.timetable;
   if(!settings || !Array.isArray(settings.counts) || !Array.isArray(settings.periods))return [];
-  const configuredCount=Number(settings.counts[weekday])||0;
+  const configuredCount=dayLessons[date]||Number(settings.counts[weekday])||0;
   const count=Number(lessonCount)>=1&&Number(lessonCount)<=8?Number(lessonCount):configuredCount;
   if(count<1)return [];
   const free=new Set(freePeriodsForWeekday(settings,weekday));

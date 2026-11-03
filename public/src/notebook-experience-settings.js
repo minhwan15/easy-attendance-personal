@@ -5,7 +5,7 @@ const validStudentId = value => /^[1-3]\d{4}$/.test(value) && Number(value.slice
 
 /** Day baselines are deliberately separate from the older application-count baseline. */
 export function normalizeExperienceSettings(input = {}) {
-  if (!object(input) || Object.keys(input).some(key => !['blockedDates', 'baselineDays', 'warningPhrases', 'weekdayLessons'].includes(key))) throw new Error('체험학습 표 설정을 확인해 주세요.');
+  if (!object(input) || Object.keys(input).some(key => !['blockedDates', 'baselineDays', 'warningPhrases', 'weekdayLessons', 'dayLessons'].includes(key))) throw new Error('체험학습 표 설정을 확인해 주세요.');
   const blockedDates = Object.hasOwn(input, 'blockedDates') ? input.blockedDates : [];
   if (!Array.isArray(blockedDates) || blockedDates.length > 3660 || !blockedDates.every(isDate)) throw new Error('체험학습 제외 날짜를 확인해 주세요.');
   const baseline = Object.hasOwn(input, 'baselineDays') ? input.baselineDays : {};
@@ -27,6 +27,7 @@ export function normalizeExperienceSettings(input = {}) {
   // Optional keys stay absent until a teacher saves them, so older stored settings compare unchanged.
   if (Object.hasOwn(input, 'warningPhrases')) result.warningPhrases = normalizeWarningPhrases(input.warningPhrases);
   if (Object.hasOwn(input, 'weekdayLessons')) result.weekdayLessons = normalizeWeekdayLessons(input.weekdayLessons);
+  if (Object.hasOwn(input, 'dayLessons')) result.dayLessons = normalizeDayLessons(input.dayLessons);
   return result;
 }
 
@@ -43,6 +44,17 @@ export function normalizeWarningPhrases(input) {
   return phrases;
 }
 
+/** 날짜별 수업 교시(시간표 변동일), 1~8교시, 최대 400일. */
+export function normalizeDayLessons(input) {
+  if (!object(input) || Object.keys(input).length > 400) throw new Error('날짜별 수업 교시를 확인해 주세요.');
+  const result = {};
+  for (const date of Object.keys(input).sort()) {
+    const value = input[date];
+    if (!isDate(date) || !Number.isInteger(value) || value < 1 || value > 8) throw new Error('날짜별 수업 교시는 1~8교시로 선택해 주세요.');
+    result[date] = value;
+  }
+  return result;
+}
 /** 요일별 기본 교시 수(월~금, 4~8교시). */
 export function normalizeWeekdayLessons(input) {
   if (!object(input) || Object.keys(input).some(key => !['1', '2', '3', '4', '5'].includes(key))) throw new Error('요일별 교시 수를 확인해 주세요.');

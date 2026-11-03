@@ -10,7 +10,7 @@ import { normalizeParentReplies } from './notebook-parent-replies.js';
 import { retainedExperienceConfirmations } from './notebook-experience-grid-model.js';
 import { emptyRecord, normalizeRecord, parseSourceText, parseConversationCandidates, contentReadiness, readiness, experienceStatus, toNeisRows, exportCsv, parsePeriods, withAttendanceMeetings, ATTENDANCE_TYPES, REASON_TYPES } from './notebook-model.js';
 import { todaySeoul } from './model.js';
-import { seoulNow, schoolPeriodsForDate, formatSchoolPeriods, missedPeriods, lessonPeriodNumbers } from './school-timetable.js';
+import { seoulNow, schoolPeriodsForDate, formatSchoolPeriods, missedPeriods, lessonPeriodNumbers , setDayLessons, weekdayLessonCount } from './school-timetable.js';
 import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
@@ -105,7 +105,7 @@ function accept(result) {
   if(result.dailyExamError)state.examError='대학별고사 일정을 불러오지 못했습니다. 최신 기록 불러오기를 눌러 주세요.';
   state.students = [...(result.students || [])].sort((a,b)=>a.studentId.localeCompare(b.studentId));
   state.parentReplies=normalizeParentReplies(result.parentReplies);
-  state.experienceSettings = normalizeExperienceSettings(result.experienceSettings || {});
+  state.experienceSettings = normalizeExperienceSettings(result.experienceSettings || {});setDayLessons(state.experienceSettings.dayLessons);
   state.revision = result.revision || 0;
   const validIds = new Set(state.records.filter(r => readiness(r).ready && r.entryStatus !== 'confirmed').map(r => r.id));
   state.selected = new Set([...state.selected].filter(id => validIds.has(id)));
@@ -300,6 +300,7 @@ function queueDateCalendar(dates,countFor) {
     }).join('')}</div></section>`;
   }).join('')}</div>`;
 }
+function dayLessonNote(date){const day=state.experienceSettings.dayLessons?.[date];return day?`시간표 변동일 · 기본 ${weekdayLessonCount(date)||'-'}교시 → ${day}교시`:`기본 시간표 ${weekdayLessonCount(date)||'-'}교시 · 바꾸면 이날 기록 전체에 적용`;}
 function queueListHtml(list,reportMode){
   const done=reportMode?[]:list.filter(r=>r.entryStatus==='confirmed'),open=list.filter(r=>!done.includes(r));
   const ready=open.filter(r=>readiness(r).ready&&['attendance','experience'].includes(r.category));
@@ -312,9 +313,9 @@ function queueContent(records) {
   const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary>${queueDateCalendar(dateChoices,date=>(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length)}</details>`;
   const bulkLessonTargets=unified&&state.queueDate?state.records.filter(r=>r.category==='attendance'&&r.startDate===state.queueDate&&!isPracticalRecord(r)&&!isExamRecord(r)):[];
   const storedBulkCounts=[...new Set(bulkLessonTargets.map(r=>Number(r.lessonCount)).filter(count=>Number.isInteger(count)&&count>=1&&count<=8))];
-  const bulkLessonDefault=storedBulkCounts.length===1?storedBulkCounts[0]:schoolPeriodsForDate(state.queueDate).length;
+  const bulkLessonDefault=Math.max(1,schoolPeriodsForDate(state.queueDate).length);
   const blocked=records.filter(r=>!readiness(r).ready&&r.entryStatus!=='confirmed');
-  return `<div class="neis-purpose-tools" role="group" aria-label="나이스 작업 선택"><button type="button" class="btn small pc-tools ${reportMode?'':'primary'}" data-neis-purpose="attendance" aria-pressed="${!reportMode}">일일출결 입력</button><button type="button" class="btn small pc-tools ${reportMode?'primary':''}" data-neis-purpose="report" aria-pressed="${reportMode}">학부모 신고서 접수</button><button class="btn small soft" type="button" data-parent-reports title="나이스 엑셀을 올려 미제출·접수대기 확인">학부모 신고서 제출 확인</button></div>${dateControls}${unified&&state.queueDate?`<div class="queue-date-tools bulk-lesson-tools"><label>이 날짜 실제 수업<select id="bulk-lesson-count"><option value="" disabled ${bulkLessonDefault?'':'selected'}>교시 선택</option><option value="1" ${bulkLessonDefault===1?'selected':''}>1교시</option><option value="2" ${bulkLessonDefault===2?'selected':''}>2교시</option><option value="3" ${bulkLessonDefault===3?'selected':''}>3교시</option><option value="4" ${bulkLessonDefault===4?'selected':''}>4교시</option><option value="5" ${bulkLessonDefault===5?'selected':''}>5교시</option><option value="6" ${bulkLessonDefault===6?'selected':''}>6교시</option><option value="7" ${bulkLessonDefault===7?'selected':''}>7교시</option><option value="8" ${bulkLessonDefault===8?'selected':''}>8교시</option></select></label><button class="btn small primary" type="button" id="bulk-lesson-save" ${bulkLessonTargets.length?'':'disabled'}>이 날짜 학생 ${bulkLessonTargets.length}명 일괄 수정</button><small>선택한 날짜의 출결 기록 전체에 적용합니다.</small></div>`:''}<div class="section-info">${reportMode?'<strong>출결 입력을 완료한 기록도 신고서 접수용으로 다시 보낼 수 있습니다.</strong><br>보낸 뒤 도우미에서 ‘학부모 신고서 접수’를 선택하세요.':'<strong>① 기록 선택 → ② 선택한 기록 보내기 → ③ 나이스 탭에서 입력·저장</strong><br>보내기 버튼은 설치한 나이스 도우미로 기록을 전달합니다.'}</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}${reportMode?'선택한 기록 신고서 접수용으로 보내기':'선택한 기록 보내기'}</button><small>${reportMode?'도우미에서 학부모 신고서 접수 선택':'설치한 나이스 도우미로 바로 전달'}</small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified||reportMode?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
+  return `<div class="neis-purpose-tools" role="group" aria-label="나이스 작업 선택"><button type="button" class="btn small pc-tools ${reportMode?'':'primary'}" data-neis-purpose="attendance" aria-pressed="${!reportMode}">일일출결 입력</button><button type="button" class="btn small pc-tools ${reportMode?'primary':''}" data-neis-purpose="report" aria-pressed="${reportMode}">학부모 신고서 접수</button><button class="btn small soft" type="button" data-parent-reports title="나이스 엑셀을 올려 미제출·접수대기 확인">학부모 신고서 제출 확인</button></div>${dateControls}${unified&&state.queueDate?`<div class="queue-date-tools bulk-lesson-tools"><label>${shortDate(state.queueDate)} 수업<select id="bulk-lesson-count"><option value="" disabled ${bulkLessonDefault?'':'selected'}>교시 선택</option><option value="1" ${bulkLessonDefault===1?'selected':''}>1교시</option><option value="2" ${bulkLessonDefault===2?'selected':''}>2교시</option><option value="3" ${bulkLessonDefault===3?'selected':''}>3교시</option><option value="4" ${bulkLessonDefault===4?'selected':''}>4교시</option><option value="5" ${bulkLessonDefault===5?'selected':''}>5교시</option><option value="6" ${bulkLessonDefault===6?'selected':''}>6교시</option><option value="7" ${bulkLessonDefault===7?'selected':''}>7교시</option><option value="8" ${bulkLessonDefault===8?'selected':''}>8교시</option></select></label><button class="btn small primary" type="button" id="bulk-lesson-save">이날 교시 적용</button><small>${dayLessonNote(state.queueDate)}</small></div>`:''}<div class="section-info">${reportMode?'<strong>출결 입력을 완료한 기록도 신고서 접수용으로 다시 보낼 수 있습니다.</strong><br>보낸 뒤 도우미에서 ‘학부모 신고서 접수’를 선택하세요.':'<strong>① 기록 선택 → ② 선택한 기록 보내기 → ③ 나이스 탭에서 입력·저장</strong><br>보내기 버튼은 설치한 나이스 도우미로 기록을 전달합니다.'}</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}${reportMode?'선택한 기록 신고서 접수용으로 보내기':'선택한 기록 보내기'}</button><small>${reportMode?'도우미에서 학부모 신고서 접수 선택':'설치한 나이스 도우미로 바로 전달'}</small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified||reportMode?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
 }
 function renderWorkspace() {
   experienceGrid?.destroy(); experienceGrid = null;
@@ -385,29 +386,32 @@ function bindWorkspace() {
   document.querySelectorAll('[data-queue-date]').forEach(button=>button.onclick=()=>chooseQueueDate(button.dataset.queueDate));
   const bulkLessonSave=document.querySelector('#bulk-lesson-save');
   if(bulkLessonSave)bulkLessonSave.onclick=async()=>{
-    const count=Number(document.querySelector('#bulk-lesson-count')?.value);
-    const targets=state.records.filter(r=>r.category==='attendance'&&r.startDate===state.queueDate&&!isPracticalRecord(r)&&!isExamRecord(r));
-    if(!Number.isInteger(count)||count<1||count>8||!targets.length)return;
-    if(!confirm(`${state.queueDate} 출결 기록 ${targets.length}건의 실제 수업을 ${count}교시로 일괄 수정할까요? 지각·조퇴의 빠진 교시도 새 시간표에 맞춰 조정됩니다.`))return;
+    const date=state.queueDate,count=Number(document.querySelector('#bulk-lesson-count')?.value);
+    if(!date||!Number.isInteger(count)||count<1||count>8)return;
+    const base=weekdayLessonCount(date);
+    const targets=state.records.filter(r=>r.category==='attendance'&&!isPracticalRecord(r)&&!isExamRecord(r)&&(r.attendanceDates?.length?r.attendanceDates:[r.startDate]).includes(date)&&r.entryStatus!=='confirmed');
+    if(!confirm(`${shortDate(date)} 수업을 ${count}교시로 정할까요?\n이날 기록 ${targets.length}건과 앞으로 이날 쓰는 기록에 모두 적용됩니다.${targets.some(r=>['지각','조퇴'].includes(r.attendanceType))?'\n지각·조퇴의 빠진 교시도 새 교시 수에 맞춰 조정됩니다.':''}`))return;
     bulkLessonSave.disabled=true;let saved=0;
     try{
+      const before=normalizeExperienceSettings(state.experienceSettings),dayLessons={...(before.dayLessons||{})};
+      if(count===base)delete dayLessons[date];else dayLessons[date]=count;
+      const next=normalizeExperienceSettings({...before,dayLessons});
+      if(demo){state.experienceSettings=next;}else accept(await api({action:'save-experience-settings',settings:next,beforeSettings:before},'POST'));
+      setDayLessons(state.experienceSettings.dayLessons);
       for(const original of targets){
         const current=state.records.find(item=>item.id===original.id);if(!current)continue;
         let periods=current.periods||'';
         if(current.attendanceType==='지각'||current.attendanceType==='조퇴'){
           const parsed=parsePeriods(periods),numbers=parsed.valid?parsed.periods.filter(Number.isInteger):[];
-          if(current.attendanceType==='지각'){
-            const endpoint=numbers.length?Math.min(count,Math.max(...numbers)):0;
-            periods=formatSchoolPeriods(['조회',...Array.from({length:endpoint},(_,i)=>i+1)]);
-          }else{
-            const endpoint=numbers.length?Math.min(count,Math.min(...numbers)):count+1;
-            periods=formatSchoolPeriods([...Array.from({length:Math.max(0,count-endpoint+1)},(_,i)=>endpoint+i),'종례']);
-          }
+          if(current.attendanceType==='지각'){const endpoint=numbers.length?Math.min(count,Math.max(...numbers)):0;periods=formatSchoolPeriods(['조회',...Array.from({length:endpoint},(_,i)=>i+1)]);}
+          else{const endpoint=numbers.length?Math.min(count,Math.min(...numbers)):count+1;periods=formatSchoolPeriods([...Array.from({length:Math.max(0,count-endpoint+1)},(_,i)=>endpoint+i),'종례']);}
         }
-        await persistRecord({...current,lessonCount:count,periods,reviewStatus:'draft',entryStatus:'pending',neisConfirmedDates:[]},current);saved++;
+        // 날짜 설정을 따르도록 기록별 교시 지정은 비웁니다. 내용 확인 상태는 그대로 둡니다.
+        if(Number(current.lessonCount||0)===0&&periods===(current.periods||''))continue;
+        await saveRecordOnce({...current,lessonCount:0,periods},current);saved++;
       }
-      render();toast(`${state.queueDate} 실제 수업을 ${count}교시로 ${saved}건 일괄 수정했습니다. 나이스에 다시 보내 주세요.`);
-    }catch(error){render();toast(`${saved}건 저장 후 중단: ${error.message}`);}
+      render();toast(`${shortDate(date)} 수업을 ${count}교시로 정했습니다${saved?` · 지각·조퇴 등 ${saved}건 조정`:''}.`);
+    }catch(error){render();toast(`저장하지 못했습니다: ${error.message}`);}
   };
   const dateInput=document.querySelector('#queue-date');if(dateInput)dateInput.onchange=()=>chooseQueueDate(dateInput.value);
   const selectAll=document.querySelector('#select-all');if(selectAll)selectAll.onchange=()=>{sendQueueRecords(filteredRecords(),state.queueDate).forEach(r=>selectAll.checked?state.selected.add(r.id):state.selected.delete(r.id));renderWorkspace();};
