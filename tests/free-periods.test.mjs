@@ -29,3 +29,16 @@ test('absence sent to NEIS lists only real lessons', () => {
   assert.equal(row.periods, '1, 3~6교시');
   assert.equal(row.lessonCount, 6);
 });
+
+test('시간표 변동일: 날짜별 수업 교시가 그날 시간표와 나이스 행에 적용됩니다', async () => {
+  const { setDayLessons } = await import('../public/src/school-timetable.js');
+  try {
+    assert.equal(schoolPeriodsForDate('2026-11-04').length, 6);
+    setDayLessons({ '2026-11-04': 4 });
+    assert.equal(schoolPeriodsForDate('2026-11-04').length, 4);
+    assert.equal(schoolPeriodsForDate('2026-11-04', 7).length, 7, '기록별 지정이 우선');
+    assert.equal(schoolPeriodsForDate('2026-11-05').length, 6, '다른 날은 그대로');
+    const record = { ...emptyRecord(), id:'r2', category:'attendance', studentId:'30101', studentName:'예시', startDate:'2026-11-04', endDate:'2026-11-04', attendanceType:'결석', reasonType:'질병', reason:'감기', reviewStatus:'reviewed' };
+    assert.equal(toNeisRows([record])[0].lessonCount, 4);
+  } finally { setDayLessons(null); }
+});

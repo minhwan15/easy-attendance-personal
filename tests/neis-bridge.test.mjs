@@ -30,10 +30,10 @@ test('only the installed extension top frame from the exact app origin may submi
   const store = receiver();
   const invalidSenders = [
     { ...sender(), id: 'other-extension' }, { ...sender(), frameId: 2 },
-    { ...sender(), url: 'https://class-calendar-beryl.vercel.app.evil.example/notebook.html' },
+    { ...sender(), url: 'https://other-app.example.evil.example/notebook.html' },
     { ...sender(), origin: 'https://evil.example' },
     { ...sender(), tab: { url: 'https://evil.example' } },
-    { ...sender(), url: 'http://class-calendar-beryl.vercel.app/notebook.html' },
+    { ...sender(), url: 'http://other-app.example/notebook.html' },
   ];
   for (const caller of invalidSenders) {
     assert.equal((await store.receive(message(), caller)).ok, false);
@@ -43,7 +43,7 @@ test('only the installed extension top frame from the exact app origin may submi
   assert.equal((await store.receive({ ...message(), command: 'hello' }, sender())).available, true);
   assert.equal(store.writes(), 0);
   assert.equal(isNotebookUrl(`${NOTEBOOK_ORIGIN}/notebook.html?demo=1`), true);
-  assert.equal(isNotebookUrl('https://user@class-calendar-beryl.vercel.app/'), false);
+  assert.equal(isNotebookUrl('https://user@other-app.example/'), false);
 });
 
 test('bad rows, huge payloads and malformed envelopes cannot replace the current queue', async () => {
