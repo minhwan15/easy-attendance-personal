@@ -159,7 +159,9 @@ function bind() {
 }
 function changeMonth(amount){state.month=shiftMonth(state.month,amount);chooseDay();render();}
 function chooseDay(){const today=todaySeoul();state.selected=today.slice(0,7)===state.month?today:state.month+'-01';}
-function load(data,mode,meta={}){state.generation++;if(result.profile)globalThis.easyProfile=result.profile;state.data=data;state.mode=mode;state.writable=mode==='server'&&meta.writable===true;state.revision=meta.revision??null;state.syncError='';state.lastSynced=mode==='server'?new Date():null;state.month=data.defaultMonth;state.error='';chooseDay();render();
+/** 이번 달 이후 일정이 있으면 이번 달부터, 없으면 자료의 기준 월을 엽니다. */
+function openingMonth(data){const month=todaySeoul().slice(0,7);return data.events.some(e=>e.endDate.slice(0,7)>=month)?month:data.defaultMonth;}
+function load(data,mode,meta={}){state.generation++;if(result.profile)globalThis.easyProfile=result.profile;state.data=data;state.mode=mode;state.writable=mode==='server'&&meta.writable===true;state.revision=meta.revision??null;state.syncError='';state.lastSynced=mode==='server'?new Date():null;state.month=openingMonth(data);state.error='';chooseDay();render();
   matcherRoster=[];
   if(mode==='server'){const generation=state.generation;api('/api/notebook').then(result=>{if(state.generation===generation&&result.authenticated)matcherRoster=result.students||[];}).catch(()=>{});}
 }
