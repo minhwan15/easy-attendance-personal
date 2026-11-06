@@ -91,3 +91,18 @@
 .summary-row-main>small{font-size:11px;color:var(--muted)}
 .summary-row-actions{display:flex;gap:6px;flex:none}
 @media(max-width:700px){.summary-row{flex-wrap:wrap}.summary-row-actions{flex:1 1 100%;justify-content:flex-end}}
+/* 학부모 신고서 대조표 */
+.pr-match{margin:0 0 18px}.pr-match h3{font-size:16px;margin:0 0 4px}
+.pr-match-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.pr-match-table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+.pr-match-table th{background:#f3f6f4;text-align:left;padding:8px;font-weight:700;white-space:nowrap}
+.pr-match-table th:nth-child(3){border-left:3px solid #c9d7ce}.pr-match-table th:nth-child(4){border-left:3px solid #c9d7ce}
+.pr-match-table td{padding:8px;border-top:1px solid #e3eae5;vertical-align:top}
+.pr-match-table td:nth-child(3),.pr-match-table td:nth-child(4){border-left:3px solid #e3eae5;width:32%}
+.pr-match-table td small{color:var(--muted)}.pr-empty{color:#c3ccc6}
+.pr-match-table .pr-chip{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap;background:#eef2ef}
+.pr-received .pr-chip,.pr-submitted .pr-chip{background:#e3f1e1;color:#2f6b2a}
+.pr-missing td:nth-child(4),.pr-noRecord td:nth-child(3){background:#fff4f2}
+.pr-missing .pr-chip,.pr-noRecord .pr-chip{background:#fde3df;color:#a33a2c}
+.pr-check .pr-chip{background:#fff1d6;color:#8a5a00}.pr-warn{color:#8a5a00}
+.is-overdue{color:#a33a2c!important;font-weight:700}

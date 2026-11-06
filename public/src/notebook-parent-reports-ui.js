@@ -19,6 +19,24 @@ export function openParentReports({records,today,onOpen}){
   function rowsHtml(items,description){
     return '<p class="parent-report-description">'+esc(description)+'</p>'+(items.length?'<div class="parent-report-list">'+items.map(item=>'<article class="parent-report-row"><div><strong>'+esc(item.studentName)+' <small>'+esc(item.studentId)+'</small></strong>'+(item.deadline?'<span class="parent-report-deadline '+(item.deadline.overdue?'is-overdue':'')+'">'+esc(item.deadline.label)+' · '+esc(item.deadline.dueDate.slice(5).replace('-','/'))+'까지</span>':'')+'<p>'+esc(item.date)+' · '+esc(item.kind)+' · '+esc(item.reason)+'</p><small>'+esc(item.detail)+'</small></div><button type="button" class="btn small" data-pr-record="'+esc(item.recordId)+'">기록 보기</button></article>').join('')+'</div>':'<p class="parent-report-empty">해당 기록이 없습니다.</p>');
   }
+  /** 대조표: 왼쪽 앱 출결, 오른쪽 나이스 신고서. 짝이 없으면 한쪽이 빈칸입니다. */
+  function matchTable(report){
+    if(!Object.keys(draft).length)return '';
+    const md=date=>Number(date.slice(5,7))+'/'+Number(date.slice(8))+'('+'일월화수목금토'[new Date(date+'T12:00:00Z').getUTCDay()]+')';
+    const byId=new Map(records.map(r=>[r.id,r]));
+    const rows=[...report.items.map(item=>{const r=byId.get(item.recordId)||{};return {date:item.date,id:item.studentId,name:item.studentName,kind:item.kind,
+        left:esc((r.reasonType||'')+' '+item.kind)+(item.reason?' · '+esc(item.reason):''),
+        right:item.status==='missing'?'':item.status==='check'?'<span class="pr-warn">'+esc(item.detail)+'</span>':esc((item.reportType?item.reportType+' ':'')+item.kind)+' · <b>'+esc(item.reportStatus||item.detail)+'</b>',
+        state:item.status,deadline:item.deadline};}),
+      ...report.unmatched.flatMap(row=>row.missingDates.map(date=>({date,id:row.studentId,name:row.studentName,kind:row.kind,left:'',right:esc((row.reasonType?row.reasonType+' ':'')+row.kind)+' · <b>'+esc(row.status)+'</b>',state:'noRecord'})))]
+      .sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)||a.kind.localeCompare(b.kind));
+    const label={received:'✓ 접수',submitted:'✓ 제출',check:'확인',missing:'미제출',noRecord:'앱 기록 없음'};
+    const count=key=>rows.filter(r=>r.state===key).length;
+    return '<section class="pr-match"><h3>일일출결 ↔ 학부모 신고서 대조표</h3><p class="parent-report-description">같은 줄에 양쪽이 다 있으면 등록 완료, 한쪽이 빈칸이면 확인이 필요합니다. · 등록 '+(count('received')+count('submitted'))+' · 미제출 '+count('missing')+' · 앱 기록 없음 '+count('noRecord')+(count('check')?' · 확인 '+count('check'):'')+'</p>'
+      +(rows.length?'<div class="pr-match-wrap"><table class="pr-match-table"><thead><tr><th>날짜</th><th>학생</th><th>일일출결(앱)</th><th>학부모 신고서(나이스)</th><th>상태</th></tr></thead><tbody>'
+      +rows.map(r=>'<tr class="pr-'+r.state+'"><td>'+md(r.date)+'</td><td><b>'+esc(r.name)+'</b> <small>'+esc(r.id)+'</small></td><td>'+(r.left||'<span class="pr-empty">—</span>')+'</td><td>'+(r.right||'<span class="pr-empty">—</span>')+'</td><td><span class="pr-chip">'+label[r.state]+'</span>'+(r.deadline?'<small class="'+(r.deadline.overdue?'is-overdue':'')+'"> '+esc(r.deadline.label)+'</small>':'')+'</td></tr>').join('')
+      +'</tbody></table></div>':'<p class="parent-report-description">조회기간에 대조할 기록이 없습니다.</p>')+'</section>';
+  }
   function results(){
     const report=compareParentReports(records,draft,today),groups={missing:[],submitted:[],received:[],check:[]};
     report.items.forEach(item=>groups[item.status].push(item));
@@ -34,7 +52,8 @@ export function openParentReports({records,today,onOpen}){
     dialog.querySelectorAll('[data-pr-recipient]').forEach(input=>input.onchange=()=>{$('[data-pr-download]').disabled=selectedRows().length<2;});
     $('[data-pr-download]').onclick=()=>{const rows=selectedRows();if(!busy&&rows.length>1)downloadMailmerge(rows,today);};
 
-    $('[data-pr-results]').innerHTML='<p class="parent-report-description">오늘까지의 앱 출결 중 업로드한 종류·조회기간에 해당하는 기록만 대조합니다. 미인정은 제외합니다. 대학별고사·체험학습도 제외합니다.</p><section class="parent-report-missing"><h3>미제출 확인 필요 <span>'+groups.missing.length+'건</span></h3>'+rowsHtml(groups.missing,'엑셀에 신고서가 없습니다. 출결일 다음 평일부터 5일 이내 제출 · 주말 제외. 조회조건과 종이 제출 여부를 확인하세요.')+'</section><details class="parent-report-group"><summary>제출됨 · 접수대기 '+groups.submitted.length+'건</summary>'+rowsHtml(groups.submitted,'학부모가 제출한 신고서입니다. 미제출 명단에서 제외합니다.')+'</details><details class="parent-report-group"><summary>접수됨 '+groups.received.length+'건</summary>'+rowsHtml(groups.received,'엑셀에서 접수 상태가 확인됩니다. 일일출결 입력 완료 여부와는 별개입니다.')+'</details><details class="parent-report-group"><summary>반려·취소·이름 확인 '+groups.check.length+'건</summary>'+rowsHtml(groups.check,'제출 상태 또는 학생 이름을 확인하세요.')+'</details>'+(report.unmatched.length?'<section class="parent-report-missing"><h3>앱 출결 기록 누락 확인 <span>'+report.unmatched.length+'건</span></h3><p class="parent-report-description">신고서는 있지만 해당 날짜·종류의 앱 출결 기록이 없습니다. 빠뜨린 기록인지 확인하세요.</p><div class="parent-report-list">'+report.unmatched.map(row=>'<article class="parent-report-row"><div><strong>'+esc(row.studentName)+' <small>'+esc(row.studentId)+'</small></strong><p>'+row.missingDates.map(date=>esc(date)).join(' · ')+' · '+esc(row.kind)+'</p><small>신고서 상태: '+esc(row.status)+'</small></div></article>').join('')+'</div></section>':'');
+    const table=matchTable(report);
+    $('[data-pr-results]').innerHTML=table+'<p class="parent-report-description">오늘까지의 앱 출결 중 업로드한 종류·조회기간에 해당하는 기록만 대조합니다. 미인정은 제외합니다. 대학별고사·체험학습도 제외합니다.</p><section class="parent-report-missing"><h3>미제출 확인 필요 <span>'+groups.missing.length+'건</span></h3>'+rowsHtml(groups.missing,'엑셀에 신고서가 없습니다. 출결일 다음 평일부터 5일 이내 제출 · 주말 제외. 조회조건과 종이 제출 여부를 확인하세요.')+'</section><details class="parent-report-group"><summary>제출됨 · 접수대기 '+groups.submitted.length+'건</summary>'+rowsHtml(groups.submitted,'학부모가 제출한 신고서입니다. 미제출 명단에서 제외합니다.')+'</details><details class="parent-report-group"><summary>접수됨 '+groups.received.length+'건</summary>'+rowsHtml(groups.received,'엑셀에서 접수 상태가 확인됩니다. 일일출결 입력 완료 여부와는 별개입니다.')+'</details><details class="parent-report-group"><summary>반려·취소·이름 확인 '+groups.check.length+'건</summary>'+rowsHtml(groups.check,'제출 상태 또는 학생 이름을 확인하세요.')+'</details>'+(report.unmatched.length?'<section class="parent-report-missing"><h3>앱 출결 기록 누락 확인 <span>'+report.unmatched.length+'건</span></h3><p class="parent-report-description">신고서는 있지만 해당 날짜·종류의 앱 출결 기록이 없습니다. 빠뜨린 기록인지 확인하세요.</p><div class="parent-report-list">'+report.unmatched.map(row=>'<article class="parent-report-row"><div><strong>'+esc(row.studentName)+' <small>'+esc(row.studentId)+'</small></strong><p>'+row.missingDates.map(date=>esc(date)).join(' · ')+' · '+esc(row.kind)+'</p><small>신고서 상태: '+esc(row.status)+'</small></div></article>').join('')+'</div></section>':'');
     dialog.querySelectorAll('[data-pr-record]').forEach(button=>button.onclick=()=>{const record=records.find(r=>r.id===button.dataset.prRecord);close();if(record)onOpen(record);});
   }
   function render(){

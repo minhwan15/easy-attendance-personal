@@ -75,7 +75,8 @@ export function compareParentReports(records,imports,today){
       matches.forEach(row=>used.add(row));
       const active=matches.filter(row=>!/취소|반려|삭제/.test(row.status));
       const status=active.length?(active.some(row=>/접수/.test(row.status)&&!/대기/.test(row.status))?'received':'submitted'):matches.length||candidates.length?'check':'missing';
-      result.push({recordId:record.id,studentId:record.studentId,studentName:record.studentName,date,kind:record.attendanceType,reason:record.reason||'',status,...(status==='missing'?{deadline:reportDeadline(date,today)}:{}),detail:active.length?[...new Set(active.map(row=>row.status))].join(' · '):matches.length?[...new Set(matches.map(row=>row.status))].join(' · '):candidates.length?'엑셀 이름과 앱 이름 불일치':'엑셀에서 해당 학생·날짜·종류를 찾지 못함'});
+      const shown=(active.length?active:matches)[0];
+      result.push({...(shown?{reportType:shown.reasonType||'',reportStatus:shown.status||''}:{}),recordId:record.id,studentId:record.studentId,studentName:record.studentName,date,kind:record.attendanceType,reason:record.reason||'',status,...(status==='missing'?{deadline:reportDeadline(date,today)}:{}),detail:active.length?[...new Set(active.map(row=>row.status))].join(' · '):matches.length?[...new Set(matches.map(row=>row.status))].join(' · '):candidates.length?'엑셀 이름과 앱 이름 불일치':'엑셀에서 해당 학생·날짜·종류를 찾지 못함'});
     }
   }
   result.sort((a,b)=>a.date.localeCompare(b.date)||a.studentId.localeCompare(b.studentId)||a.kind.localeCompare(b.kind));
