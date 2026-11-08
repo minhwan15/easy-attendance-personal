@@ -18,7 +18,9 @@ test('large class keeps every row, escapes names, and repeats the header on each
 test('report viewer does not save uploads or load stored imports',async()=>{
  const ui=await readFile(new URL('../public/src/notebook-parent-reports-ui.js',import.meta.url),'utf8');
  assert.doesNotMatch(ui,/data-pr-save|await save\(|localStorage|sessionStorage/);
- assert.match(ui,/let draft=\{\}/);
+ assert.match(ui,/let draft=clone\(imports\|\|\{\}\)/);
  const app=await readFile(new URL('../public/src/notebook-app.js',import.meta.url),'utf8');
  assert.doesNotMatch(app,/save-report-imports/);
+ assert.doesNotMatch(app,/localStorage\.setItem\('parentReportImports'/);
+ assert.match(app,/sessionStorage\.setItem\('parentReportImports'/);
 });

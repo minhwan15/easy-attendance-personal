@@ -58,7 +58,7 @@
   /* 나이스 작업 버튼 줄: 고른 폭 */
   .neis-purpose-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .neis-purpose-tools .btn{width:100%;white-space:normal;line-height:1.3}
-  .neis-purpose-tools [data-parent-reports]{grid-column:1/-1}
+  .neis-purpose-tools [data-parent-reports],.neis-purpose-tools [data-neis-purpose="check"]{grid-column:1/-1}
 
   /* 날짜·교시 도구 */
   .queue-date-tools{gap:8px}
@@ -118,3 +118,7 @@
   .pr-match-table tr{grid-template-columns:auto 1fr 1fr auto;grid-template-areas:"d n n s" "l l r r"}
   .pr-match-table td[data-side]::before{content:attr(data-side);display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
 }
+.pr-inline-actions{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px}
+.pr-sources{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pr-source{font-size:12px;padding:4px 10px;border-radius:99px;background:#f1f3f2;color:var(--muted)}.pr-source.is-on{background:#e3f1e1;color:#2f6b2a;font-weight:650}
+.badge.pr-badge-ok{background:#e3f1e1;color:#2f6b2a}.badge.pr-badge-missing{background:#fde3df;color:#a33a2c}.badge.pr-badge-check{background:#fff1d6;color:#8a5a00}
