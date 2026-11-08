@@ -27,7 +27,7 @@ test('report UI renders a checkbox for completed attendance and hides reset acti
  const card=source.slice(source.indexOf('function recordCard('),source.indexOf('function workspaceContent('));
  const exercise=new Function('record','reportQueueRecords','readiness','withAttendanceMeetings',`
  const state={neisPurpose:'report',queueDate:'2026-10-16',selected:new Set()};
- const esc=value=>String(value??''),icon=()=>'',categoryIcon=()=>'',rangeLabel=()=>'',isExamRecord=()=>false,isPracticalRecord=()=>false,canIssuePass=()=>false,attendanceStep=()=> '나이스 입력 완료',wasSent=()=>false;
+ const esc=value=>String(value??''),icon=()=>'',categoryIcon=()=>'',rangeLabel=()=>'',isExamRecord=()=>false,isPracticalRecord=()=>false,canIssuePass=()=>false,attendanceStep=()=> '나이스 입력 완료',wasSent=()=>false,reportBadge=()=>'';
  const labels={attendance:'출결'},sourceLabels={memo:'메모'};
  ${card}
  return recordCard(record,{queue:true});
