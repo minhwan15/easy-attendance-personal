@@ -32,9 +32,9 @@ export function openParentReports({records,today,onOpen}){
       .sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)||a.kind.localeCompare(b.kind));
     const label={received:'✓ 접수',submitted:'✓ 제출',check:'확인',missing:'미제출',noRecord:'앱 기록 없음'};
     const count=key=>rows.filter(r=>r.state===key).length;
-    return '<section class="pr-match"><h3>일일출결 ↔ 학부모 신고서 대조표</h3><p class="parent-report-description">같은 줄에 양쪽이 다 있으면 등록 완료, 한쪽이 빈칸이면 확인이 필요합니다. · 등록 '+(count('received')+count('submitted'))+' · 미제출 '+count('missing')+' · 앱 기록 없음 '+count('noRecord')+(count('check')?' · 확인 '+count('check'):'')+'</p>'
+    return '<section class="pr-match"><h3>일일출결 ↔ 학부모 신고서 대조표</h3><p class="parent-report-description">같은 줄에 양쪽이 다 있으면 등록 완료, 한쪽이 빈칸이면 확인이 필요합니다.</p><p class="pr-counts">등록 <b>'+(count('received')+count('submitted'))+'</b> · 미제출 <b>'+count('missing')+'</b> · 앱 기록 없음 <b>'+count('noRecord')+'</b>'+(count('check')?' · 확인 <b>'+count('check')+'</b>':'')+'</p>'
       +(rows.length?'<div class="pr-match-wrap"><table class="pr-match-table"><thead><tr><th>날짜</th><th>학생</th><th>일일출결(앱)</th><th>학부모 신고서(나이스)</th><th>상태</th></tr></thead><tbody>'
-      +rows.map(r=>'<tr class="pr-'+r.state+'"><td>'+md(r.date)+'</td><td><b>'+esc(r.name)+'</b> <small>'+esc(r.id)+'</small></td><td>'+(r.left||'<span class="pr-empty">—</span>')+'</td><td>'+(r.right||'<span class="pr-empty">—</span>')+'</td><td><span class="pr-chip">'+label[r.state]+'</span>'+(r.deadline?'<small class="'+(r.deadline.overdue?'is-overdue':'')+'"> '+esc(r.deadline.label)+'</small>':'')+'</td></tr>').join('')
+      +rows.map(r=>'<tr class="pr-'+r.state+'"><td>'+md(r.date)+'</td><td><b>'+esc(r.name)+'</b> <small>'+esc(r.id)+'</small></td><td data-side="앱">'+(r.left||'<span class="pr-empty">—</span>')+'</td><td data-side="신고서">'+(r.right||'<span class="pr-empty">—</span>')+'</td><td><span class="pr-chip">'+label[r.state]+'</span>'+(r.deadline?'<small class="'+(r.deadline.overdue?'is-overdue':'')+'"> '+esc(r.deadline.label)+'</small>':'')+'</td></tr>').join('')
       +'</tbody></table></div>':'<p class="parent-report-description">조회기간에 대조할 기록이 없습니다.</p>')+'</section>';
   }
   function results(){
