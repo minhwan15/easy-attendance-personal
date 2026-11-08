@@ -122,3 +122,17 @@
 .pr-sources{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .pr-source{font-size:12px;padding:4px 10px;border-radius:99px;background:#f1f3f2;color:var(--muted)}.pr-source.is-on{background:#e3f1e1;color:#2f6b2a;font-weight:650}
 .badge.pr-badge-ok{background:#e3f1e1;color:#2f6b2a}.badge.pr-badge-missing{background:#fde3df;color:#a33a2c}.badge.pr-badge-check{background:#fff1d6;color:#8a5a00}
+/* 일일출결 + 신고서 접수 + 제출 확인 한 화면 */
+.pr-inline{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0 12px;background:#fbfcfb}
+.pr-inline-actions{align-items:center;margin:0}.pr-inline-actions>strong{font-size:14px;margin-right:4px}
+.pr-inline .form-error:empty{display:none}
+.pr-all{margin-top:10px}.pr-all>summary{cursor:pointer;font-size:13px;font-weight:650;color:var(--muted)}
+.card-report{flex:none;width:150px;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 12px;border-left:1px dashed var(--line);font-size:12px}
+.card-report>span{font-size:11px;color:var(--muted)}.card-report b{font-size:13px}.card-report small{color:var(--muted)}
+.card-report.pr-ok b{color:#2f6b2a}.card-report.pr-missing{background:#fff4f2}.card-report.pr-missing b{color:#a33a2c}.card-report.pr-check b{color:#8a5a00}.card-report.pr-none b{color:var(--muted);font-weight:500}
+.record-card.pr-ghost{background:#fffaf9;border-style:dashed}.pr-ghost .record-open{cursor:default}.pr-ghost-note{color:#a33a2c}
+.neis-send-action{flex-wrap:wrap}
+@media(max-width:700px){
+  .card-report{width:100%;flex:1 1 100%;border-left:0;border-top:1px dashed var(--line);padding:8px 0 0;flex-direction:row;align-items:baseline;gap:8px;justify-content:flex-start}
+  .card-report.pr-missing{background:none}
+}
