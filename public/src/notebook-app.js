@@ -305,7 +305,7 @@ function dayLessonNote(date){const day=state.experienceSettings.dayLessons?.[dat
 function queueListHtml(list,reportMode){
   const done=reportMode?[]:list.filter(r=>r.entryStatus==='confirmed'),open=list.filter(r=>!done.includes(r));
   const ready=open.filter(r=>readiness(r).ready&&['attendance','experience'].includes(r.category));
-  return `${!reportMode&&ready.length>1&&state.queueDate?`<div class="complete-all-row"><button class="btn small" id="complete-all" data-ids='${esc(JSON.stringify(ready.map(r=>r.id)))}'>✓ 이 날짜 미입력 ${ready.length}건 모두 입력 완료</button></div>`:''}<div class="record-list">${open.map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>${done.length?`<details class="done-records"><summary>입력 완료 ${done.length}건 보기</summary><div class="record-list">${done.map(r=>recordCard(r,{queue:true})).join('')}</div></details>`:''}`;
+  return `${!reportMode&&ready.length>1&&state.queueDate?`<div class="complete-all-row"><button class="btn small" id="complete-all" data-ids='${esc(JSON.stringify(ready.map(r=>r.id)))}'>✓ 이 날짜 미입력 ${ready.length}건 모두 입력 완료</button></div>`:''}<div class="record-list">${open.map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}${done.map(r=>recordCard(r,{queue:true})).join('')}</div>`;
 }
 
 /* 나이스 신고서 엑셀 대조 자료: 서버에 저장하지 않고 이 브라우저 탭에만 둡니다(탭을 닫으면 사라짐). */
@@ -322,7 +322,13 @@ function reportCompare(){
 function reportCell(record){
   if(!hasReportImports()||record.category!=='attendance')return '';
   const list=reportCompare().map.get(record.id);
-  if(!list)return '<div class="card-report pr-none"><span>학부모 신고서</span><b>대조 기간 밖</b></div>';
+  if(!list){
+    // 대학별고사 등 자동 대조에서 빠진 기록: 같은 학생·날짜의 신고서가 있는지 직접 찾습니다.
+    const date=record.startDate,sources=Object.values(state.reportImports||{});
+    if(!date||!sources.some(src=>date>=src.start&&date<=src.end))return '<div class="card-report pr-none"><span>학부모 신고서</span><b>대조 기간 밖</b></div>';
+    const row=sources.flatMap(src=>src.rows||[]).find(item=>item.studentId===record.studentId&&item.start<=date&&item.end>=date&&!/취소|반려|삭제/.test(item.status||''));
+    return row?`<div class="card-report pr-ok"><span>학부모 신고서</span><b>✓ ${esc(row.status)}</b><small>${esc(row.reasonType||'')} ${esc(row.kind)}</small></div>`:'<div class="card-report pr-missing"><span>학부모 신고서</span><b>신고서 없음</b></div>';
+  }
   const missing=list.find(item=>item.status==='missing'),check=list.find(item=>item.status==='check'),ok=list.find(item=>item.status==='received'||item.status==='submitted');
   if(missing)return `<div class="card-report pr-missing"><span>학부모 신고서</span><b>미제출</b>${missing.deadline?`<small class="${missing.deadline.overdue?'is-overdue':''}">${esc(missing.deadline.label)}</small>`:''}</div>`;
   if(check)return `<div class="card-report pr-check"><span>학부모 신고서</span><b>확인 필요</b><small>${esc(check.detail)}</small></div>`;
@@ -331,7 +337,7 @@ function reportCell(record){
 /** 신고서는 있는데 앱 출결 기록이 없는 경우(선택한 날짜). */
 function reportOnlyHtml(){
   if(!hasReportImports())return '';
-  const rows=(reportCompare().report?.unmatched||[]).flatMap(row=>row.missingDates.filter(date=>!state.queueDate||date===state.queueDate).map(date=>({...row,date})));
+  const rows=(reportCompare().report?.unmatched||[]).flatMap(row=>row.missingDates.filter(date=>(!state.queueDate||date===state.queueDate)&&!state.records.some(r=>r.studentId===row.studentId&&(r.startDate===date||(r.attendanceDates||[]).includes(date)))).map(date=>({...row,date})));
   if(!rows.length)return '';
   return `<h3 class="not-ready-label">신고서만 있고 앱 출결 기록 없음 · ${rows.length}건</h3><div class="record-list">${rows.map(row=>`<article class="record-card pr-ghost"><div class="record-open"><span class="record-main"><span class="record-title">${esc(row.studentName)}<span class="student-number">${esc(row.studentId)}</span></span><span class="record-sub"><span>${shortDate(row.date)}</span><span>${esc(row.kind)}</span><span class="pr-ghost-note">앱 기록 없음 · 새 기록으로 등록하세요</span></span></span></div><div class="card-report pr-ok"><span>학부모 신고서</span><b>${esc(row.status)}</b><small>${esc(row.reasonType||'')} ${esc(row.kind)}</small></div></article>`).join('')}</div>`;
 }
