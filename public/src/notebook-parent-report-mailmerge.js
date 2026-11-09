@@ -9,7 +9,7 @@ export function mailmergeRows(items,today){
  }
  return [['학번',''],...[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([id,group])=>{
   const events=[...group.events.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.kind.localeCompare(b.kind));
-  const details=events.map(e=>e.date.slice(5).replace('-','/')+' '+e.kind+'. '+(e.deadline?e.deadline.dueDate.slice(5).replace('-','/')+'까지 ':'')).join('/ ');
+  const details=events.map(e=>e.date.slice(5).replace('-','/')+' '+e.kind).join(', ')+'. ';
   return [id,'[출결신고서 누락] '+group.name+' '+details+'나이스 학부모서비스에 제출 바랍니다.'];
  })];
 }
