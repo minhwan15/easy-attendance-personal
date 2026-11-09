@@ -21,6 +21,6 @@ test('report viewer does not save uploads or load stored imports',async()=>{
  assert.match(ui,/let draft=clone\(imports\|\|\{\}\)/);
  const app=await readFile(new URL('../public/src/notebook-app.js',import.meta.url),'utf8');
  assert.doesNotMatch(app,/save-report-imports/);
- assert.doesNotMatch(app,/localStorage\.setItem\('parentReportImports'/);
- assert.match(app,/sessionStorage\.setItem\('parentReportImports'/);
+ assert.match(app,/localStorage\.setItem\('parentReportImports'/);
+ assert.doesNotMatch(app,/fetch\([^)]*parentReportImports/);
 });

@@ -308,9 +308,10 @@ function queueListHtml(list,reportMode){
   return `${!reportMode&&ready.length>1&&state.queueDate?`<div class="complete-all-row"><button class="btn small" id="complete-all" data-ids='${esc(JSON.stringify(ready.map(r=>r.id)))}'>✓ 이 날짜 미입력 ${ready.length}건 모두 입력 완료</button></div>`:''}<div class="record-list">${open.map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}${done.map(r=>recordCard(r,{queue:true})).join('')}</div>`;
 }
 
-/* 나이스 신고서 엑셀 대조 자료: 서버에 저장하지 않고 이 브라우저 탭에만 둡니다(탭을 닫으면 사라짐). */
-function loadReportImports(){try{return JSON.parse(sessionStorage.getItem('parentReportImports')||'{}')||{};}catch{return {};}}
-function setReportImports(value){state.reportImports=value||{};try{sessionStorage.setItem('parentReportImports',JSON.stringify(state.reportImports));}catch{}}
+/* 나이스 신고서 엑셀 대조 자료: 서버에는 보내지 않고 이 PC 브라우저에 저장합니다(새로고침해도 유지, ‘지우기’로 삭제). */
+function loadReportImports(){try{return JSON.parse(localStorage.getItem('parentReportImports')||sessionStorage.getItem('parentReportImports')||'{}')||{};}catch{return {};}}
+function setReportImports(value){state.reportImports=value||{};try{const text=JSON.stringify(state.reportImports);Object.keys(state.reportImports).length?localStorage.setItem('parentReportImports',text):localStorage.removeItem('parentReportImports');sessionStorage.removeItem('parentReportImports');}catch{}}
+const uploadedLabel=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);};
 const hasReportImports=()=>Object.keys(state.reportImports||{}).length>0;
 let reportStatusCache={key:'',map:new Map(),report:null};
 function reportCompare(){
@@ -342,10 +343,10 @@ function reportOnlyHtml(){
   return `<h3 class="not-ready-label">신고서만 있고 앱 출결 기록 없음 · ${rows.length}건</h3><div class="record-list">${rows.map(row=>`<article class="record-card pr-ghost"><div class="record-open"><span class="record-main"><span class="record-title">${esc(row.studentName)}<span class="student-number">${esc(row.studentId)}</span></span><span class="record-sub"><span>${shortDate(row.date)}</span><span>${esc(row.kind)}</span><span class="pr-ghost-note">앱 기록 없음 · 새 기록으로 등록하세요</span></span></span></div><div class="card-report pr-ok"><span>학부모 신고서</span><b>${esc(row.status)}</b><small>${esc(row.reasonType||'')} ${esc(row.kind)}</small></div></article>`).join('')}</div>`;
 }
 function reportStrip(){
-  const sources=['absence','partial'].map(key=>{const v=state.reportImports[key];return `<span class="pr-source ${v?'is-on':''}">${key==='absence'?'결석':'지각·조퇴·결과'} ${v?`${v.rows.length}건 · ${Number(v.start.slice(5,7))}/${Number(v.start.slice(8))}~${Number(v.end.slice(5,7))}/${Number(v.end.slice(8))}`:'미업로드'}</span>`;}).join('');
+  const sources=['absence','partial'].map(key=>{const v=state.reportImports[key];return `<span class="pr-source ${v?'is-on':''}">${key==='absence'?'결석':'지각·조퇴·결과'} ${v?`${v.rows.length}건 · ${Number(v.start.slice(5,7))}/${Number(v.start.slice(8))}~${Number(v.end.slice(5,7))}/${Number(v.end.slice(8))}${v.importedAt?` · ${uploadedLabel(v.importedAt)} 업로드`:''}`:'미업로드'}</span>`;}).join('');
   let table='';
   if(hasReportImports()){const report=reportCompare().report;table=report?`<details class="pr-all"><summary>신고서 대조표 전체 보기</summary>${matchTableHtml(state.records,report)}</details>`:'<p class="form-error">신고서 자료를 대조하지 못했습니다. 다시 올려 주세요.</p>';}
-  return `<div class="pr-inline pc-tools-block"><div class="pr-inline-actions"><strong>학부모 신고서 제출 확인</strong><button class="btn small" type="button" id="pr-upload">나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple hidden id="pr-files"><button class="btn small soft" type="button" id="pr-more" ${hasReportImports()?'':'disabled'}>미제출 문자·출력</button>${sources}</div><p class="form-error" id="pr-error" role="alert"></p>${table}</div>`;
+  return `<div class="pr-inline pc-tools-block"><div class="pr-inline-actions"><strong>학부모 신고서 제출 확인</strong><button class="btn small" type="button" id="pr-upload">나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple hidden id="pr-files"><button class="btn small soft" type="button" id="pr-more" ${hasReportImports()?'':'disabled'}>미제출 문자·출력</button>${sources}${hasReportImports()?'<button class="text-btn" type="button" id="pr-clear">지우기</button>':''}</div><p class="form-error" id="pr-error" role="alert"></p>${table}</div>`;
 }
 function selectableQueue(records,date=state.queueDate){const seen=new Set();return [...queueDateRecords(records,date),...reportQueueRecords(records,date)].filter(r=>!seen.has(r.id)&&seen.add(r.id));}
 function queueContent(records) {
@@ -396,6 +397,7 @@ function bindRecordDelete(root=document) {
 function bindWorkspace() {
   document.querySelector('#pr-upload')?.addEventListener('click',()=>document.querySelector('#pr-files').click());
   document.querySelector('#pr-files')?.addEventListener('change',async event=>{const files=[...event.target.files];event.target.value='';if(!files.length)return;const error=document.querySelector('#pr-error');try{setReportImports(await readReportFiles(files,state.reportImports));renderWorkspace();}catch(e){error.textContent=e.message;}});
+  document.querySelector('#pr-clear')?.addEventListener('click',()=>{if(!confirm('저장된 신고서 엑셀 자료를 이 PC에서 지울까요?'))return;setReportImports({});renderWorkspace();});
   document.querySelector('#pr-more')?.addEventListener('click',()=>openParentReports({records:state.records,today:today(),onOpen:openEditor,imports:state.reportImports,onImports:value=>{setReportImports(value);renderWorkspace();}}));
   document.querySelectorAll('[data-neis-purpose]').forEach(button=>button.onclick=()=>{state.neisPurpose=button.dataset.neisPurpose;state.filter='all';state.todayType='';state.selected.clear();render();});
   document.querySelectorAll('[data-exam-done]').forEach(b=>b.onclick=async()=>{const record=state.records.find(r=>r.id===b.dataset.examDone);if(!record)return;b.disabled=true;
