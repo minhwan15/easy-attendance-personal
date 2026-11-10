@@ -106,6 +106,10 @@ function accept(result) {
   if(result.dailyExamError)state.examError='대학별고사 일정을 불러오지 못했습니다. 최신 기록 불러오기를 눌러 주세요.';
   state.students = [...(result.students || [])].sort((a,b)=>a.studentId.localeCompare(b.studentId));
   state.parentReplies=normalizeParentReplies(result.parentReplies);
+  if(result.authenticated&&result.reportImports&&typeof result.reportImports==='object'){
+    state.serverReportImports=result.reportImports;
+    setReportImports(result.reportImports,{local:true});
+  }
   state.experienceSettings = normalizeExperienceSettings(result.experienceSettings || {});setDayLessons(state.experienceSettings.dayLessons);
   state.revision = result.revision || 0;
   const validIds = new Set(state.records.filter(r => readiness(r).ready && r.entryStatus !== 'confirmed').map(r => r.id));
@@ -308,9 +312,15 @@ function queueListHtml(list,reportMode){
   return `${!reportMode&&ready.length>1&&state.queueDate?`<div class="complete-all-row"><button class="btn small" id="complete-all" data-ids='${esc(JSON.stringify(ready.map(r=>r.id)))}'>✓ 이 날짜 미입력 ${ready.length}건 모두 입력 완료</button></div>`:''}<div class="record-list">${open.map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}${done.map(r=>recordCard(r,{queue:true})).join('')}</div>`;
 }
 
-/* 나이스 신고서 엑셀 대조 자료: 서버에는 보내지 않고 이 PC 브라우저에 저장합니다(새로고침해도 유지, ‘지우기’로 삭제). */
 function loadReportImports(){try{return JSON.parse(localStorage.getItem('parentReportImports')||sessionStorage.getItem('parentReportImports')||'{}')||{};}catch{return {};}}
-function setReportImports(value){state.reportImports=value||{};try{const text=JSON.stringify(state.reportImports);Object.keys(state.reportImports).length?localStorage.setItem('parentReportImports',text):localStorage.removeItem('parentReportImports');sessionStorage.removeItem('parentReportImports');}catch{}}
+/** 신고서 엑셀 대조 자료: 반 계정에 암호화 저장(다른 PC·새로고침에도 유지) + 이 브라우저에 사본. */
+function setReportImports(value,{local=false}={}){
+  state.reportImports=value||{};
+  try{const text=JSON.stringify(state.reportImports);Object.keys(state.reportImports).length?localStorage.setItem('parentReportImports',text):localStorage.removeItem('parentReportImports');sessionStorage.removeItem('parentReportImports');}catch{}
+  if(local||demo||!state.user)return;
+  const before=state.serverReportImports||{};
+  api({action:'save-report-imports',imports:state.reportImports,beforeImports:before},'POST').then(result=>{state.serverReportImports=result.reportImports||state.reportImports;}).catch(error=>toast(error.message||'신고서 자료를 저장하지 못했습니다.'));
+}
 const uploadedLabel=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);};
 const hasReportImports=()=>Object.keys(state.reportImports||{}).length>0;
 let reportStatusCache={key:'',map:new Map(),report:null};
@@ -397,7 +407,7 @@ function bindRecordDelete(root=document) {
 function bindWorkspace() {
   document.querySelector('#pr-upload')?.addEventListener('click',()=>document.querySelector('#pr-files').click());
   document.querySelector('#pr-files')?.addEventListener('change',async event=>{const files=[...event.target.files];event.target.value='';if(!files.length)return;const error=document.querySelector('#pr-error');try{setReportImports(await readReportFiles(files,state.reportImports));renderWorkspace();}catch(e){error.textContent=e.message;}});
-  document.querySelector('#pr-clear')?.addEventListener('click',()=>{if(!confirm('저장된 신고서 엑셀 자료를 이 PC에서 지울까요?'))return;setReportImports({});renderWorkspace();});
+  document.querySelector('#pr-clear')?.addEventListener('click',()=>{if(!confirm('저장된 신고서 엑셀 자료를 지울까요? (다른 PC에서도 지워집니다)'))return;setReportImports({});renderWorkspace();});
   document.querySelector('#pr-more')?.addEventListener('click',()=>openParentReports({records:state.records,today:today(),onOpen:openEditor,imports:state.reportImports,onImports:value=>{setReportImports(value);renderWorkspace();}}));
   document.querySelectorAll('[data-neis-purpose]').forEach(button=>button.onclick=()=>{state.neisPurpose=button.dataset.neisPurpose;state.filter='all';state.todayType='';state.selected.clear();render();});
   document.querySelectorAll('[data-exam-done]').forEach(b=>b.onclick=async()=>{const record=state.records.find(r=>r.id===b.dataset.examDone);if(!record)return;b.disabled=true;
