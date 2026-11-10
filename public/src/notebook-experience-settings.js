@@ -1,11 +1,12 @@
 import { isDate } from './model.js';
+import { validNeisRegion } from './notebook-neis-region.js';
 
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 const validStudentId = value => /^[1-3]\d{4}$/.test(value) && Number(value.slice(1, 3)) > 0 && Number(value.slice(3)) > 0;
 
 /** Day baselines are deliberately separate from the older application-count baseline. */
 export function normalizeExperienceSettings(input = {}) {
-  if (!object(input) || Object.keys(input).some(key => !['blockedDates', 'baselineDays', 'warningPhrases', 'weekdayLessons', 'dayLessons'].includes(key))) throw new Error('체험학습 표 설정을 확인해 주세요.');
+  if (!object(input) || Object.keys(input).some(key => !['blockedDates', 'baselineDays', 'warningPhrases', 'weekdayLessons', 'dayLessons', 'neisRegion'].includes(key))) throw new Error('체험학습 표 설정을 확인해 주세요.');
   const blockedDates = Object.hasOwn(input, 'blockedDates') ? input.blockedDates : [];
   if (!Array.isArray(blockedDates) || blockedDates.length > 3660 || !blockedDates.every(isDate)) throw new Error('체험학습 제외 날짜를 확인해 주세요.');
   const baseline = Object.hasOwn(input, 'baselineDays') ? input.baselineDays : {};
@@ -28,6 +29,7 @@ export function normalizeExperienceSettings(input = {}) {
   if (Object.hasOwn(input, 'warningPhrases')) result.warningPhrases = normalizeWarningPhrases(input.warningPhrases);
   if (Object.hasOwn(input, 'weekdayLessons')) result.weekdayLessons = normalizeWeekdayLessons(input.weekdayLessons);
   if (Object.hasOwn(input, 'dayLessons')) result.dayLessons = normalizeDayLessons(input.dayLessons);
+  if (Object.hasOwn(input, 'neisRegion')) { if (!validNeisRegion(input.neisRegion)) throw new Error('나이스 지역을 확인해 주세요.'); result.neisRegion = input.neisRegion; }
   return result;
 }
 

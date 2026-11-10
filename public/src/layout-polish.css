@@ -141,3 +141,5 @@
 .pr-month{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:13px;font-weight:650;cursor:pointer;color:inherit}
 .pr-month.is-active{background:var(--green,#2f6b4f);border-color:var(--green,#2f6b4f);color:#fff}
 .pr-month.is-empty{color:var(--muted);font-weight:500}.pr-month.is-empty.is-active{color:#fff}
+.neis-open-option{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}.neis-open-option label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.neis-region-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;padding:4px 20px 20px}

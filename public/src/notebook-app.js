@@ -16,6 +16,7 @@ import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
 import { openSettings } from './notebook-settings-ui.js';
+import { NEIS_REGIONS, neisRegionOf, neisRegionName, neisUrl } from './notebook-neis-region.js';
 import { mountSmsInbox } from './notebook-sms-ui.js';
 import { reasonShortcuts } from './notebook-reason-shortcuts.js';
 import { condolenceStart, condolenceFollowup, CONDOLENCE_RETURNED } from './notebook-condolence.js';
@@ -372,6 +373,29 @@ function reportStrip(){
   return `<div class="pr-inline pc-tools-block"><div class="pr-inline-actions"><strong>학부모 신고서 제출 확인</strong><button class="btn small" type="button" id="pr-upload">나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple hidden id="pr-files"><button class="btn small soft" type="button" id="pr-more" ${hasReportImports()?'':'disabled'}>미제출 문자·출력</button>${sources}${hasReportImports()?'<button class="text-btn" type="button" id="pr-clear">지우기</button>':''}</div><p class="form-error" id="pr-error" role="alert"></p>${table}</div>`;
 }
 function selectableQueue(records,date=state.queueDate){const seen=new Set();return [...queueDateRecords(records,date),...reportQueueRecords(records,date)].filter(r=>!seen.has(r.id)&&seen.add(r.id));}
+/* 출결 입력 보내기와 함께 우리 지역 나이스를 엽니다. 이미 연 탭이 있으면 새로 열지 않습니다. */
+let neisWindow=null;
+function openNeisToo(){try{return localStorage.getItem('openNeisToo')!=='0';}catch{return true;}}
+function openNeisNow(region){
+  if(!openNeisToo()||!region)return;
+  if(neisWindow&&!neisWindow.closed){try{neisWindow.focus();}catch{}return;}
+  neisWindow=window.open(neisUrl(region),'_blank');
+}
+function saveNeisRegion(region){
+  const before=state.experienceSettings,settings={...before,neisRegion:region};
+  if(demo){state.experienceSettings=normalizeExperienceSettings(settings);return Promise.resolve();}
+  return api({action:'save-experience-settings',settings,beforeSettings:before},'POST').then(accept).catch(error=>toast(error.message||'나이스 지역을 저장하지 못했습니다.'));
+}
+/** 나이스 지역 고르기(처음 한 번). 고른 뒤 then(region)을 실행합니다. */
+function chooseNeisRegion(then=()=>{}){
+  const current=neisRegionOf(state.experienceSettings);
+  const dialog=document.createElement('dialog');dialog.className='dialog neis-region-dialog';
+  dialog.innerHTML=`<div class="dialog-head"><div><h2>나이스 지역 선택</h2><p>출결 입력 보내기를 누르면 이 지역 나이스가 함께 열립니다. 반 계정에 저장됩니다.</p></div><button type="button" class="icon-btn" data-close aria-label="닫기">×</button></div><div class="neis-region-grid">${NEIS_REGIONS.map(([code,name])=>`<button type="button" class="btn ${code===current?'primary':''}" data-region="${code}">${name}</button>`).join('')}</div>`;
+  document.body.append(dialog);dialog.showModal();
+  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.querySelectorAll('[data-region]').forEach(button=>button.onclick=()=>{const region=button.dataset.region;dialog.close();saveNeisRegion(region).then(()=>{if(document.querySelector('#neis-region'))renderWorkspace();});then(region);});
+}
 function queueContent(records) {
   const reportMode=state.neisPurpose==='report',unified=state.section==='attendance',visible=recordsForDateDisplay(records,state.queueDate).filter(record=>!reportMode||reportQueueRecords([record],state.queueDate).length);
   const ready=selectableQueue(records,state.queueDate);
@@ -381,7 +405,7 @@ function queueContent(records) {
   const storedBulkCounts=[...new Set(bulkLessonTargets.map(r=>Number(r.lessonCount)).filter(count=>Number.isInteger(count)&&count>=1&&count<=8))];
   const bulkLessonDefault=Math.max(1,schoolPeriodsForDate(state.queueDate).length);
   const blocked=records.filter(r=>!readiness(r).ready&&r.entryStatus!=='confirmed');
-  return `${dateControls}${unified&&state.queueDate?`<div class="queue-date-tools bulk-lesson-tools"><label>${shortDate(state.queueDate)} 수업<select id="bulk-lesson-count"><option value="" disabled ${bulkLessonDefault?'':'selected'}>교시 선택</option><option value="1" ${bulkLessonDefault===1?'selected':''}>1교시</option><option value="2" ${bulkLessonDefault===2?'selected':''}>2교시</option><option value="3" ${bulkLessonDefault===3?'selected':''}>3교시</option><option value="4" ${bulkLessonDefault===4?'selected':''}>4교시</option><option value="5" ${bulkLessonDefault===5?'selected':''}>5교시</option><option value="6" ${bulkLessonDefault===6?'selected':''}>6교시</option><option value="7" ${bulkLessonDefault===7?'selected':''}>7교시</option><option value="8" ${bulkLessonDefault===8?'selected':''}>8교시</option></select></label><button class="btn small primary" type="button" id="bulk-lesson-save">이날 교시 적용</button><small>${dayLessonNote(state.queueDate)}</small></div>`:''}${reportStrip()}<div class="section-info">${reportMode?'<strong>출결 입력을 완료한 기록도 신고서 접수용으로 다시 보낼 수 있습니다.</strong><br>보낸 뒤 도우미에서 ‘학부모 신고서 접수’를 선택하세요.':'<strong>① 기록 선택 → ② [출결 입력 보내기] 또는 [신고서 접수용 보내기] → ③ 나이스에서 저장</strong><br>입력을 마친 기록도 신고서 접수용으로 다시 보낼 수 있습니다. 신고서 엑셀을 올리면 각 기록 오른쪽에 학부모 신고서 등록 여부가 보입니다.'}</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}출결 입력 보내기</button><button class="btn small" id="send-neis-report">신고서 접수용 보내기</button><small>설치한 나이스 도우미로 바로 전달</small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified||reportMode?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${reportOnlyHtml()}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
+  return `${dateControls}${unified&&state.queueDate?`<div class="queue-date-tools bulk-lesson-tools"><label>${shortDate(state.queueDate)} 수업<select id="bulk-lesson-count"><option value="" disabled ${bulkLessonDefault?'':'selected'}>교시 선택</option><option value="1" ${bulkLessonDefault===1?'selected':''}>1교시</option><option value="2" ${bulkLessonDefault===2?'selected':''}>2교시</option><option value="3" ${bulkLessonDefault===3?'selected':''}>3교시</option><option value="4" ${bulkLessonDefault===4?'selected':''}>4교시</option><option value="5" ${bulkLessonDefault===5?'selected':''}>5교시</option><option value="6" ${bulkLessonDefault===6?'selected':''}>6교시</option><option value="7" ${bulkLessonDefault===7?'selected':''}>7교시</option><option value="8" ${bulkLessonDefault===8?'selected':''}>8교시</option></select></label><button class="btn small primary" type="button" id="bulk-lesson-save">이날 교시 적용</button><small>${dayLessonNote(state.queueDate)}</small></div>`:''}${reportStrip()}<div class="section-info">${reportMode?'<strong>출결 입력을 완료한 기록도 신고서 접수용으로 다시 보낼 수 있습니다.</strong><br>보낸 뒤 도우미에서 ‘학부모 신고서 접수’를 선택하세요.':'<strong>① 기록 선택 → ② [출결 입력 보내기] 또는 [신고서 접수용 보내기] → ③ 나이스에서 저장</strong><br>입력을 마친 기록도 신고서 접수용으로 다시 보낼 수 있습니다. 신고서 엑셀을 올리면 각 기록 오른쪽에 학부모 신고서 등록 여부가 보입니다.'}</div>${(unified?visible.length:ready.length)?`<div class="export-toolbar neis-main-action"><label class="check-label"><input type="checkbox" id="select-all" ${ready.length&&ready.every(r=>state.selected.has(r.id))?'checked':''} ${!ready.length?'disabled':''}> ${state.queueDate?`${shortDate(state.queueDate)} 전체`:'모든 날짜 전체'} ${ready.length}건 선택</label><div class="neis-send-action"><span data-neis-choice>보낼 기록을 선택하세요</span><button class="btn small primary" id="send-neis-helper">${icon('check')}출결 입력 보내기</button><button class="btn small" id="send-neis-report">신고서 접수용 보내기</button><small class="neis-open-option"><label><input type="checkbox" id="open-neis-too" ${openNeisToo()?'checked':''}> 보낼 때 나이스도 열기</label> · <button type="button" class="text-btn" id="neis-region">${neisRegionOf(state.experienceSettings)?`${esc(neisRegionName(neisRegionOf(state.experienceSettings)))} 나이스`:'나이스 지역 선택'}</button></small></div></div><p class="neis-transfer-status" data-neis-transfer-status role="status"></p><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 직접 붙여넣기 또는 파일로 옮기기</summary><div class="neis-alternative-actions"><div><button class="btn small" id="copy-rows">${icon('copy')}붙여넣을 내용 복사</button><p>도우미 없이 나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn small" id="export-csv">${icon('download')}엑셀로 확인할 파일 저장</button><p>선택한 내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn small" id="export-json">${icon('download')}도우미에서 불러올 파일 저장</button><p>직접 연결이 안 되거나 다른 PC로 옮길 때 · 도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><div class="record-list">${(unified||reportMode?visible:ready).map(r=>recordCard(r,{queue:true,blockers:!readiness(r).ready})).join('')}</div>`:empty(state.queueDate?`${shortDate(state.queueDate)} ${unified?'기록':'미입력 기록'}이 없습니다.`:'입력 준비가 완료된 기록이 없습니다.','다른 날짜를 선택하거나 새 기록을 저장하세요.',false)}${reportOnlyHtml()}${!unified&&blocked.length?`<h3 class="not-ready-label">내용 확인이 필요한 기록 · ${blocked.length}건</h3><div class="record-list">${blocked.map(r=>recordCard(r,{blockers:true})).join('')}</div>`:''}${neisGuideHtml()}`;
 }
 function renderWorkspace() {
   experienceGrid?.destroy(); experienceGrid = null;
@@ -486,7 +510,14 @@ function bindWorkspace() {
   };
   const dateInput=document.querySelector('#queue-date');if(dateInput)dateInput.onchange=()=>chooseQueueDate(dateInput.value);
   const selectAll=document.querySelector('#select-all');if(selectAll)selectAll.onchange=()=>{selectableQueue(filteredRecords(),state.queueDate).forEach(r=>selectAll.checked?state.selected.add(r.id):state.selected.delete(r.id));renderWorkspace();};
-  for(const [id,format,purpose] of [['copy-rows','copy'],['export-csv','csv'],['export-json','json'],['send-neis-helper','helper'],['send-neis-report','helper','report']]){const button=document.getElementById(id);if(button)button.onclick=()=>exportSelected(format,purpose);}
+  for(const [id,format,purpose] of [['copy-rows','copy'],['export-csv','csv'],['export-json','json'],['send-neis-helper','helper'],['send-neis-report','helper','report']]){const button=document.getElementById(id);if(button)button.onclick=()=>{
+    if(format!=='helper'||!openNeisToo())return exportSelected(format,purpose);
+    const region=neisRegionOf(state.experienceSettings);
+    if(!region)return chooseNeisRegion(chosen=>{openNeisNow(chosen);exportSelected(format,purpose);});
+    openNeisNow(region);exportSelected(format,purpose);
+  };}
+  document.getElementById('open-neis-too')?.addEventListener('change',event=>{try{localStorage.setItem('openNeisToo',event.target.checked?'1':'0');}catch{}});
+  document.getElementById('neis-region')?.addEventListener('click',()=>chooseNeisRegion());
   updateNeisActions();
 }
 async function refresh() {
