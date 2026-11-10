@@ -136,3 +136,4 @@
   .card-report{width:100%;flex:1 1 100%;border-left:0;border-top:1px dashed var(--line);padding:8px 0 0;flex-direction:row;align-items:baseline;gap:8px;justify-content:flex-start}
   .card-report.pr-missing{background:none}
 }
+.sms-quiet{font-size:12px;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:6px}

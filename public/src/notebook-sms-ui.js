@@ -17,6 +17,7 @@ const demoItems = today => [
 ];
 
 const demoDismissed = new Set();
+const pollers = {};
 /** 아침 출결 메모 위의 ‘받은 문자’. 선택 기능이며, 켜기 전에는 작은 안내만 보입니다. */
 export function mountSmsInbox({ root, demo, students, today, save, notify, onSaved, fillForm, compact = false }) {
   let enabled = demo, items = demo ? demoItems(today).filter(item => !demoDismissed.has(item.id)) : [], url = '', busy = false, loaded = demo;
@@ -25,7 +26,7 @@ export function mountSmsInbox({ root, demo, students, today, save, notify, onSav
     const result = await inboxApi({ action: 'dismiss', ids }); items = result.items; enabled = result.enabled;
   };
   function render() {
-    if (compact && !items.length) { root.innerHTML = ''; return; }
+    if (compact && !items.length) { root.innerHTML = enabled ? '<p class="sms-quiet">받은 문자 <b>0</b>건 · 학부모 문자 연동 켜짐 <button type="button" class="text-btn" data-sms-refresh>새로 확인</button></p>' : ''; bind(); return; }
     const cards = items.slice().sort((a, b) => a.receivedAt.localeCompare(b.receivedAt)).map(item => {
       const s = suggestFromMessage(item.text, students, today), f = s.fields;
       const summary = s.student ? `${esc(s.student.studentId)} ${esc(s.student.studentName || s.student.name)} · ${esc(f.reasonType)} ${esc(f.attendanceType)}${f.reason ? ` · ${esc(f.reason)}` : ''}${f.periods ? ` · ${esc(f.periods)}` : ''}` : '학생을 찾지 못했습니다 · 고쳐서 등록하세요';
@@ -74,5 +75,14 @@ export function mountSmsInbox({ root, demo, students, today, save, notify, onSav
     catch (error) { if (manual || !loaded) { render(); if (manual) notify(error.message); } }
   }
   render(); load();
+  // 앱을 열어 둔 동안에도 새 문자를 놓치지 않도록: 화면이 보일 때 5분마다, 다시 볼 때 바로 확인
+  if (!demo) {
+    const slot = compact ? 'compact' : 'full';
+    if (pollers[slot]) { clearInterval(pollers[slot].timer); document.removeEventListener('visibilitychange', pollers[slot].onVisible); }
+    const onVisible = () => { if (document.visibilityState === 'visible' && root.isConnected) load(); };
+    const timer = setInterval(() => { if (!root.isConnected) { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); return; } if (document.visibilityState === 'visible') load(); }, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', onVisible);
+    pollers[slot] = { timer, onVisible };
+  }
   return { refresh: () => load(), setStudents: value => { students = value; render(); } };
 }
