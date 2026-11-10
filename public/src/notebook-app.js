@@ -1,6 +1,6 @@
 import {renderPersonalAuth,openPersonalSettings} from './personal-ui.js';
 import { openParentReports, matchTableHtml, readReportFiles } from './notebook-parent-reports-ui.js';
-import { compareParentReports } from './notebook-parent-reports.js';
+import { compareParentReports, inReportPeriod } from './notebook-parent-reports.js';
 import { reportQueueRecords } from './notebook-report-queue.js';
 import { openExperienceWeek } from './notebook-experience-week-ui.js';
 import { todayAttendance, attendanceStep, nextAttendanceAction } from './notebook-flow.js';
@@ -325,7 +325,7 @@ const uploadedLabel=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())
 const hasReportImports=()=>Object.keys(state.reportImports||{}).length>0;
 let reportStatusCache={key:'',map:new Map(),report:null};
 function reportCompare(){
-  const key=state.revision+'|'+state.records.length+'|'+JSON.stringify(Object.values(state.reportImports).map(v=>[v.importedAt,v.start,v.end]));
+  const key=state.revision+'|'+state.records.length+'|'+JSON.stringify(Object.values(state.reportImports).map(v=>[v.importedAt,v.start,v.end,v.rows.length]));
   if(reportStatusCache.key!==key){const map=new Map();let report=null;try{report=compareParentReports(state.records,state.reportImports,today());report.items.forEach(item=>{const list=map.get(item.recordId)||[];list.push(item);map.set(item.recordId,list);});}catch{}reportStatusCache={key,map,report};}
   return reportStatusCache;
 }
@@ -336,7 +336,7 @@ function reportCell(record){
   if(!list){
     // 대학별고사 등 자동 대조에서 빠진 기록: 같은 학생·날짜의 신고서가 있는지 직접 찾습니다.
     const date=record.startDate,sources=Object.values(state.reportImports||{});
-    if(!date||!sources.some(src=>date>=src.start&&date<=src.end))return '<div class="card-report pr-none"><span>학부모 신고서</span><b>대조 기간 밖</b></div>';
+    if(!date||!sources.some(src=>inReportPeriod(src,date)))return '<div class="card-report pr-none"><span>학부모 신고서</span><b>대조 기간 밖</b></div>';
     const row=sources.flatMap(src=>src.rows||[]).find(item=>item.studentId===record.studentId&&item.start<=date&&item.end>=date&&!/취소|반려|삭제/.test(item.status||''));
     return row?`<div class="card-report pr-ok"><span>학부모 신고서</span><b>✓ ${esc(row.status)}</b><small>${esc(row.reasonType||'')} ${esc(row.kind)}</small></div>`:'<div class="card-report pr-missing"><span>학부모 신고서</span><b>신고서 없음</b></div>';
   }
@@ -353,7 +353,7 @@ function reportOnlyHtml(){
   return `<h3 class="not-ready-label">신고서만 있고 앱 출결 기록 없음 · ${rows.length}건</h3><div class="record-list">${rows.map(row=>`<article class="record-card pr-ghost"><div class="record-open"><span class="record-main"><span class="record-title">${esc(row.studentName)}<span class="student-number">${esc(row.studentId)}</span></span><span class="record-sub"><span>${shortDate(row.date)}</span><span>${esc(row.kind)}</span><span class="pr-ghost-note">앱 기록 없음 · 새 기록으로 등록하세요</span></span></span></div><div class="card-report pr-ok"><span>학부모 신고서</span><b>${esc(row.status)}</b><small>${esc(row.reasonType||'')} ${esc(row.kind)}</small></div></article>`).join('')}</div>`;
 }
 function reportStrip(){
-  const sources=['absence','partial'].map(key=>{const v=state.reportImports[key];return `<span class="pr-source ${v?'is-on':''}">${key==='absence'?'결석':'지각·조퇴·결과'} ${v?`${v.rows.length}건 · ${Number(v.start.slice(5,7))}/${Number(v.start.slice(8))}~${Number(v.end.slice(5,7))}/${Number(v.end.slice(8))}${v.importedAt?` · ${uploadedLabel(v.importedAt)} 업로드`:''}`:'미업로드'}</span>`;}).join('');
+  const sources=['absence','partial'].map(key=>{const v=state.reportImports[key];return `<span class="pr-source ${v?'is-on':''}">${key==='absence'?'결석':'지각·조퇴·결과'} ${v?`${v.rows.length}건 · ${(v.periods?.length?v.periods:[v]).map(x=>`${Number(x.start.slice(5,7))}/${Number(x.start.slice(8))}~${Number(x.end.slice(5,7))}/${Number(x.end.slice(8))}`).join(', ')}${v.importedAt?` · 마지막 ${uploadedLabel(v.importedAt)} 업로드`:''}`:'미업로드'}</span>`;}).join('');
   let table='';
   if(hasReportImports()){const report=reportCompare().report;table=report?`<details class="pr-all"><summary>신고서 대조표 전체 보기</summary>${matchTableHtml(state.records,report)}</details>`:'<p class="form-error">신고서 자료를 대조하지 못했습니다. 다시 올려 주세요.</p>';}
   return `<div class="pr-inline pc-tools-block"><div class="pr-inline-actions"><strong>학부모 신고서 제출 확인</strong><button class="btn small" type="button" id="pr-upload">나이스 신고서 엑셀 올리기</button><input type="file" accept=".xlsx" multiple hidden id="pr-files"><button class="btn small soft" type="button" id="pr-more" ${hasReportImports()?'':'disabled'}>미제출 문자·출력</button>${sources}${hasReportImports()?'<button class="text-btn" type="button" id="pr-clear">지우기</button>':''}</div><p class="form-error" id="pr-error" role="alert"></p>${table}</div>`;

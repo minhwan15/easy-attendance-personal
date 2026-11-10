@@ -14,19 +14,37 @@ export function reportDeadline(date,today){
   while(day.toISOString().slice(0,10)<end){day.setUTCDate(day.getUTCDate()+1);if(![0,6].includes(day.getUTCDay()))distance++;}
   return {dueDate,days:today<=dueDate?distance:-distance,label:today===dueDate?'D-Day':today<dueDate?'D-'+distance:distance?'D+'+distance:'기한 지남',overdue:today>dueDate};
 }
+const dayAfter=date=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
+/** 조회기간 목록을 날짜순으로 합칩니다(겹치거나 이어지면 하나로). */
+function mergePeriods(list){
+  const sorted=list.filter(p=>isDate(p.start)&&isDate(p.end)&&p.start<=p.end).sort((a,b)=>a.start.localeCompare(b.start));const out=[];
+  for(const p of sorted){const last=out.at(-1);if(last&&p.start<=dayAfter(last.end)){if(p.end>last.end)last.end=p.end;if((p.importedAt||'')>(last.importedAt||''))last.importedAt=p.importedAt;}else out.push({start:p.start,end:p.end,...(p.importedAt?{importedAt:text(p.importedAt).slice(0,40)}:{})});}
+  return out;
+}
+/** 이 날짜가 올린 엑셀의 조회기간(여러 번 올린 기간 포함) 안인지. */
+export const inReportPeriod=(source,date)=>Boolean(source)&&(source.periods?.length?source.periods:[source]).some(p=>date>=p.start&&date<=p.end);
+/** 새 엑셀을 기존 자료에 덧입힙니다: 새 조회기간 안의 행만 바꾸고, 기간 밖의 예전 행은 그대로 둡니다. */
+export function mergeReportSource(old,next){
+  if(!old)return next;
+  const covered=row=>(next.periods?.length?next.periods:[next]).some(p=>row.start<=p.end&&row.end>=p.start);
+  const periods=mergePeriods([...(old.periods?.length?old.periods:[old]),...(next.periods?.length?next.periods:[next]).map(p=>({...p,importedAt:next.importedAt}))]);
+  return {name:next.name,importedAt:next.importedAt,start:periods[0].start,end:periods.at(-1).end,periods,rows:[...old.rows.filter(row=>!covered(row)),...next.rows]};
+}
 export function normalizeReportImports(input={}){
   const result={};
   for(const key of ['absence','partial']){
     const value=input?.[key];if(!value)continue;
-    if(!isDate(value.start)||!isDate(value.end)||value.start>value.end||!Array.isArray(value.rows)||value.rows.length>2000)throw Error('신고서 조회기간과 행 수를 확인해 주세요.');
+    if(!isDate(value.start)||!isDate(value.end)||value.start>value.end||!Array.isArray(value.rows)||value.rows.length>6000)throw Error('신고서 조회기간과 행 수를 확인해 주세요.');
     const rows=value.rows.map(row=>{
       const studentId=text(row.studentId),studentName=text(row.studentName),kind=text(row.kind),status=text(row.status),start=text(row.start),end=text(row.end);
       if(!/^[1-3]\d{4}$/.test(studentId)||!Number(studentId.slice(1,3))||!Number(studentId.slice(3))||!studentName||studentName.length>40||!kinds.includes(kind)||reportFileKind(kind)!==key||!isDate(start)||!isDate(end)||start>end||(Date.parse(end)-Date.parse(start))/86400000>366||!status||status.length>40)throw Error('신고서 학생·종류·기간·상태를 확인해 주세요.');
       return {studentId,studentName,kind,status,start,end,...(text(row.reasonType)?{reasonType:text(row.reasonType).slice(0,40)}:{})};
     });
-    result[key]={name:text(value.name).slice(0,180),importedAt:text(value.importedAt).slice(0,40),start:value.start,end:value.end,rows};
+    let periods=mergePeriods((Array.isArray(value.periods)?value.periods.slice(0,60):[]).map(p=>({start:p?.start>value.start?p.start:value.start,end:p?.end<value.end?p.end:value.end,importedAt:p?.importedAt})));
+    if(!periods.length)periods=[{start:value.start,end:value.end,...(value.importedAt?{importedAt:text(value.importedAt).slice(0,40)}:{})}];
+    result[key]={name:text(value.name).slice(0,180),importedAt:text(value.importedAt).slice(0,40),start:value.start,end:value.end,periods,rows};
   }
-  if(new TextEncoder().encode(JSON.stringify(result)).length>130000)throw Error('신고서 자료를 기간별로 나누어 올려 주세요.');
+  if(new TextEncoder().encode(JSON.stringify(result)).length>280000)throw Error('신고서 자료를 기간별로 나누어 올려 주세요.');
   return result;
 }
 function dateParts(value){
@@ -52,7 +70,8 @@ export function parseReportTable(table,name='',now=new Date().toISOString()){
   const dates=rows.flatMap(row=>[row.start,row.end]).sort();
   const month=(dates.at(-1)||now.slice(0,10)).slice(0,7);
   const end=new Date(month+'-01T00:00:00Z');end.setUTCMonth(end.getUTCMonth()+1);end.setUTCDate(0);
-  const snapshot={name,importedAt:now,start:month+'-01',end:end.toISOString().slice(0,10),rows};
+  const first=(dates[0]||now.slice(0,10)).slice(0,7);
+  const snapshot={name,importedAt:now,start:(first<month?first:month)+'-01',end:end.toISOString().slice(0,10),rows};
   return {key,snapshot:normalizeReportImports({[key]:snapshot})[key]};
 }
 export function compareParentReports(records,imports,today){
@@ -69,7 +88,7 @@ export function compareParentReports(records,imports,today){
       if(!isDate(date)||date>today)continue;
       const key=[record.studentId,date,record.attendanceType].join('|');if(seen.has(key))continue;seen.add(key);
       const source=imports[reportFileKind(record.attendanceType)];
-      if(!source||date<source.start||date>source.end)continue;
+      if(!inReportPeriod(source,date))continue;
       const candidates=(indices[reportFileKind(record.attendanceType)].get(record.studentId+'|'+record.attendanceType)||[]).filter(row=>row.start<=date&&row.end>=date);
       const matches=candidates.filter(row=>clean(row.studentName)===clean(record.studentName));
       matches.forEach(row=>used.add(row));
@@ -86,7 +105,7 @@ export function compareParentReports(records,imports,today){
     const end=[row.end,source.end,today].sort()[0];
     while(cursor.toISOString().slice(0,10)<=end){
       const date=cursor.toISOString().slice(0,10);
-      if((row.start===row.end||![0,6].includes(cursor.getUTCDay()))&&!records.some(r=>r.category==='attendance'&&r.studentId===row.studentId&&clean(r.studentName)===clean(row.studentName)&&r.attendanceType===row.kind&&(r.attendanceDates?.length?r.attendanceDates:[r.startDate]).includes(date)))missingDates.push(date);
+      if(inReportPeriod(source,date)&&(row.start===row.end||![0,6].includes(cursor.getUTCDay()))&&!records.some(r=>r.category==='attendance'&&r.studentId===row.studentId&&clean(r.studentName)===clean(row.studentName)&&r.attendanceType===row.kind&&(r.attendanceDates?.length?r.attendanceDates:[r.startDate]).includes(date)))missingDates.push(date);
       cursor.setUTCDate(cursor.getUTCDate()+1);
     }
     return missingDates.length?[{...row,missingDates}]:[];

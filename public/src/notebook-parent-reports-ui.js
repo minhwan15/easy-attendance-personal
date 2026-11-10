@@ -1,6 +1,6 @@
 import { mailmergeRows, downloadMailmerge, smsBytes } from './notebook-parent-report-mailmerge.js';
 import { printParentReports } from './notebook-parent-report-print.js';
-import { normalizeReportImports, parseReportTable, compareParentReports } from './notebook-parent-reports.js';
+import { normalizeReportImports, parseReportTable, compareParentReports,mergeReportSource} from './notebook-parent-reports.js';
 import { readReportWorkbook } from './notebook-report-xlsx.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -33,7 +33,7 @@ export async function readReportFiles(files,current={}){
     if(!table)throw Error('나이스 신고서관리 엑셀 형식이 아닙니다: '+file.name);
     const parsed=parseReportTable(table,file.name);
     if(seen.has(parsed.key))throw Error('같은 종류의 엑셀을 두 개 선택했습니다. 종류별 최신 파일 하나를 선택하세요.');
-    seen.add(parsed.key);next[parsed.key]=parsed.snapshot;
+    seen.add(parsed.key);next[parsed.key]=mergeReportSource(next[parsed.key],parsed.snapshot);
   }
 return normalizeReportImports(next);
 }
@@ -77,9 +77,9 @@ export function openParentReports({records,today,onOpen,imports={},onImports=()=
       return '<div class="parent-report-source"><strong>'+names[key]+' · '+source.rows.length+'건</strong><p>'+esc(source.name)+' · '+esc(source.importedAt.slice(0,10))+' 업로드</p><div class="parent-report-period"><label>엑셀 조회 시작일<input type="date" value="'+source.start+'" data-pr-period="'+key+'" data-pr-bound="start"></label><label>종료일<input type="date" value="'+source.end+'" data-pr-period="'+key+'" data-pr-bound="end"></label></div></div>';
     }).join('');
     dialog.querySelectorAll('[data-pr-period]').forEach(input=>input.onchange=()=>{
-      const source=draft[input.dataset.prPeriod],previous=source[input.dataset.prBound];source[input.dataset.prBound]=input.value;
+      const source=draft[input.dataset.prPeriod],previous=source[input.dataset.prBound],previousPeriods=source.periods;source[input.dataset.prBound]=input.value;delete source.periods;
       try{normalizeReportImports(draft);$('[data-pr-error]').textContent='';onImports(clone(draft));results();}
-      catch(error){source[input.dataset.prBound]=previous;input.value=previous;$('[data-pr-error]').textContent=error.message;}
+      catch(error){source[input.dataset.prBound]=previous;source.periods=previousPeriods;input.value=previous;$('[data-pr-error]').textContent=error.message;}
     });
     results();
   }
