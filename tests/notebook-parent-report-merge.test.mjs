@@ -10,7 +10,8 @@ test('a later upload keeps earlier months and only replaces its own period',()=>
  merged=mergeReportSource(merged,src('2026-11-01','2026-11-30',[],'2026-11-12T00:00:00Z'));
  assert.deepEqual(merged.rows.map(r=>r.studentName),['가']);
  assert.equal(merged.importedAt,'2026-11-12T00:00:00Z');
- assert.ok(inReportPeriod(merged,'2026-10-20')&&inReportPeriod(merged,'2026-11-20'));
+ assert.ok(inReportPeriod(merged,'2026-10-20')&&inReportPeriod(merged,'2026-11-11'));
+ assert.equal(inReportPeriod(merged,'2026-11-20'),false,'업로드한 날 이후는 조회기간이 아님');
 });
 test('separate periods do not cover the gap between them',()=>{
  const merged=normalizeReportImports({absence:mergeReportSource(src('2026-10-01','2026-10-31',[],'a'),src('2027-02-01','2027-02-28',[],'b'))}).absence;

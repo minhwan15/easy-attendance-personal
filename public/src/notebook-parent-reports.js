@@ -30,6 +30,9 @@ export function mergeReportSource(old,next){
   const periods=mergePeriods([...(old.periods?.length?old.periods:[old]),...(next.periods?.length?next.periods:[next]).map(p=>({...p,importedAt:next.importedAt}))]);
   return {name:next.name,importedAt:next.importedAt,start:periods[0].start,end:periods.at(-1).end,periods,rows:[...old.rows.filter(row=>!covered(row)),...next.rows]};
 }
+/** 업로드한 날(한국 시간) 이후는 엑셀에 담길 수 없으므로 조회기간 끝을 그날로 자릅니다. */
+const uploadDay=iso=>{const t=Date.parse(iso||'');return Number.isNaN(t)?'':new Date(t+9*3600000).toISOString().slice(0,10);};
+const clipEnd=(end,iso)=>{const day=uploadDay(iso);return day&&day<end?day:end;};
 export function normalizeReportImports(input={}){
   const result={};
   for(const key of ['absence','partial']){
@@ -40,9 +43,10 @@ export function normalizeReportImports(input={}){
       if(!/^[1-3]\d{4}$/.test(studentId)||!Number(studentId.slice(1,3))||!Number(studentId.slice(3))||!studentName||studentName.length>40||!kinds.includes(kind)||reportFileKind(kind)!==key||!isDate(start)||!isDate(end)||start>end||(Date.parse(end)-Date.parse(start))/86400000>366||!status||status.length>40)throw Error('신고서 학생·종류·기간·상태를 확인해 주세요.');
       return {studentId,studentName,kind,status,start,end,...(text(row.reasonType)?{reasonType:text(row.reasonType).slice(0,40)}:{})};
     });
-    let periods=mergePeriods((Array.isArray(value.periods)?value.periods.slice(0,60):[]).map(p=>({start:p?.start>value.start?p.start:value.start,end:p?.end<value.end?p.end:value.end,importedAt:p?.importedAt})));
-    if(!periods.length)periods=[{start:value.start,end:value.end,...(value.importedAt?{importedAt:text(value.importedAt).slice(0,40)}:{})}];
-    result[key]={name:text(value.name).slice(0,180),importedAt:text(value.importedAt).slice(0,40),start:value.start,end:value.end,periods,rows};
+    let periods=mergePeriods((Array.isArray(value.periods)?value.periods.slice(0,60):[]).map(p=>({start:p?.start>value.start?p.start:value.start,end:clipEnd(p?.end<value.end?p.end:value.end,p?.importedAt),importedAt:p?.importedAt})));
+    if(!periods.length)periods=mergePeriods([{start:value.start,end:clipEnd(value.end,value.importedAt),...(value.importedAt?{importedAt:text(value.importedAt).slice(0,40)}:{})}]);
+    if(!periods.length)periods=[{start:value.start,end:value.start}];
+    result[key]={name:text(value.name).slice(0,180),importedAt:text(value.importedAt).slice(0,40),start:periods[0].start,end:periods.at(-1).end,periods,rows};
   }
   if(new TextEncoder().encode(JSON.stringify(result)).length>280000)throw Error('신고서 자료를 기간별로 나누어 올려 주세요.');
   return result;
