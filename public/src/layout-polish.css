@@ -158,3 +158,10 @@
   .pr-all>summary{display:flex;width:100%;justify-content:center;padding:10px 12px;font-size:13px!important;white-space:nowrap;box-sizing:border-box}
   .pr-all>summary small{display:none}
 }
+/* 출결·사유 구분: 한 번 누르면 선택 */
+.chip-field .field-label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.chip-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.chip-choice{min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);color:inherit;font-size:14px;font-weight:650;cursor:pointer;padding:6px 4px}
+.chip-choice.is-on{background:var(--green,#2f6b4f);border-color:var(--green,#2f6b4f);color:#fff}
+@media(max-width:700px){.chip-choice{min-height:44px;font-size:15px}}
+.chip-field{grid-column:1/-1}.chip-choice{white-space:nowrap}
