@@ -146,3 +146,15 @@
 .pr-all>summary{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:99px;background:#c0392b;color:#fff!important;font-size:14px!important;font-weight:800!important;list-style:none;box-shadow:0 2px 6px rgba(192,57,43,.25)}
 .pr-all>summary::-webkit-details-marker{display:none}.pr-all>summary small{font-weight:500;opacity:.9;font-size:12px}
 .pr-all>summary:hover{background:#a93226}.pr-all[open]>summary{background:#7b241c}
+/* 폰: 신고서 제출 확인 줄 정리 */
+@media(max-width:700px){
+  .pr-inline{padding:12px}
+  .pr-inline-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .pr-inline-actions>strong{grid-column:1/-1;font-size:15px;margin:0 0 2px}
+  .pr-inline-actions>.btn{width:100%;min-height:36px;padding:6px 8px;font-size:12px;white-space:nowrap}
+  .pr-inline-actions>.pr-source{grid-column:1/-1;font-size:11px;padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:8px}
+  .pr-inline-actions>#pr-clear{grid-column:1/-1;justify-self:end;font-size:12px;padding:2px 4px}
+  .pr-all{margin-top:8px}
+  .pr-all>summary{display:flex;width:100%;justify-content:center;padding:10px 12px;font-size:13px!important;white-space:nowrap;box-sizing:border-box}
+  .pr-all>summary small{display:none}
+}
