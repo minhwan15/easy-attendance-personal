@@ -140,7 +140,7 @@
       const p=find();verify(row,p);
       const same=()=>{const next=find();if(next.box!==p.box)throw new Error('신고서 화면이 바뀌었습니다.');verify(row,next);return next;};
       if(!enabled(p.area)||p.area.readOnly)throw new Error('이 신고서는 수정·저장할 수 없습니다.');
-      const categoryValue=row.attendanceType==='결석'?(plan.reasonType==='출석인정'?'인정결석':plan.reasonType+'결석'):plan.reasonType;
+      const categoryValue=row.attendanceType==='결석'?(plan.reasonType==='출석인정'?'인정결석':plan.reasonType+'결석'):(plan.reasonType==='출석인정'?'인정':plan.reasonType);
       await choose(p.category,categoryValue,p,same);
       await choose(same().status,'접수',p,same);
       if(row.attendanceType!=='결석'){
