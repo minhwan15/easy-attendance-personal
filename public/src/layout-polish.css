@@ -165,3 +165,4 @@
 .chip-choice.is-on{background:var(--green,#2f6b4f);border-color:var(--green,#2f6b4f);color:#fff}
 @media(max-width:700px){.chip-choice{min-height:44px;font-size:15px}}
 .chip-field{grid-column:1/-1}.chip-choice{white-space:nowrap}
+.app-window-notice{flex:1 1 100%;margin:6px 0 0;padding:8px 12px;border-radius:10px;background:#fff1d6;color:#7a4f00;font-size:13px;line-height:1.5}
