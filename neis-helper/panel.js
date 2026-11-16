@@ -76,6 +76,7 @@ async function fillCurrentGrid(){
     await persist();updateProgress();$('grid-status').textContent=result.message;
     if(result.saved===true||result.skipped===true){busy=false;await advanceAfterSave(activeTransfer);}
   }catch(error){
+    error.message=withTimetableHint(error.message,item);
     $('grid-status').textContent=error.message;
     if(stopRequested){
       if(transferId===activeTransfer&&row()===item){
@@ -102,11 +103,17 @@ async function fillCurrentGrid(){
   }
   finally{busy=false;updateButtons();}
 }
+/** 교시 관련 입력 오류는 그날 시간표 변동(단축수업·교시 변경)이 원인인 경우가 많아 안내를 덧붙입니다. */
+function withTimetableHint(message,item){
+  if(!item||!['지각','조퇴','결과'].includes(item.attendanceType))return message;
+  if(!/교시|종례|조회|선택 항목|선택 결과|스크롤|출결표|시간/.test(message||''))return message;
+  return `${message}\n⚠ 수업 시간표 변동 여부를 확인해 주세요. 그날 단축수업·교시 변경이 있었다면 앱의 ‘이날 교시 적용’으로 실제 수업 교시를 맞춘 뒤 다시 보내세요.`;
+}
 async function fillReport(){
  if(!row()||busy)return;const item=row();busy=true;updateButtons();$('grid-status').textContent='신고서 학생·날짜 확인 중…';
  try{const plan=reportPlan(item),tab=await activeNeisTab();await chrome.scripting.executeScript({target:{tabId:tab.id},files:['report.js']});
  const result=await chrome.tabs.sendMessage(tab.id,{type:'TEACHER_NOTEBOOK_REPORT',command:'fill',row:item,plan});if(!result?.ok)throw new Error(result?.error||'신고서에 입력하지 못했습니다.');$('grid-status').textContent=result.message;
- }catch(error){$('grid-status').textContent=error.message;}finally{busy=false;updateButtons();}
+ }catch(error){$('grid-status').textContent=withTimetableHint(error.message,item);}finally{busy=false;updateButtons();}
 }
 function setWorkMode(mode){workMode=mode==='report'?'report':'attendance';$('attendance-start-guide').hidden=workMode==='report';$('report-start-guide').hidden=workMode!=='report';for(const modeButton of document.querySelectorAll('[data-work-mode]'))modeButton.setAttribute('aria-pressed',String(modeButton.dataset.workMode===workMode));$('grid-fill').textContent=workMode==='report'?'열린 신고서 접수 · 저장':'자동입력 · 저장 · 다음 학생';$('grid-status').textContent='';updateProgress();updateButtons();}
 for(const button of document.querySelectorAll('[data-work-mode]'))button.addEventListener('click',()=>{if(!busy)setWorkMode(button.dataset.workMode);});

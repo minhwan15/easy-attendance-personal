@@ -15,3 +15,4 @@
 .completion-help{font-size:12px;line-height:1.7;background:#edf5f2;border:1px solid #c9dfd3;border-radius:10px;padding:12px;margin:12px 0}.completion-help strong{color:#205f4b}.student-item .student-select{display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:0;flex:1;min-width:0;text-align:left;color:inherit}.student-select>span:first-child{flex:1;min-width:0}.student-item>input{cursor:pointer}
 
 .danger{display:block;width:100%;margin-top:8px;background:#fff0ee;color:#9b3027;border:1px solid #dca49e;font-weight:bold}#stop-work:not(:disabled){box-shadow:0 0 0 2px #f5d5d1}
+#grid-status{white-space:pre-wrap}
