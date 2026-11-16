@@ -176,3 +176,10 @@ test('late arrival whose boundary period is 공강 clicks the nearest earlier le
   const result=await f.call();assert.equal(result.ok,true);
   assert.equal(f.clicks.at(-1),'1교시');assert.equal(f.wanted.get('2교시').value.content,'공강');
 });
+test('결과 clicks each missed period once and leaves the other periods empty',async()=>{
+  const row={...base,attendanceType:'결과',periods:'2교시, 4교시'};const f=fixture({row});
+  for(const label of ['조회','1교시','2교시','3교시','4교시','5교시','6교시','7교시','종례']){const cell=f.wanted.get(label).value;cell.onClick=()=>{cell.content='/';};}
+  const r=await f.call();assert.equal(r.ok,true,r.error);assert.deepEqual(f.clicks,['성명','마감','적용','2교시','4교시']);
+  for(const label of ['2교시','4교시'])assert.equal(f.wanted.get(label).value.content,'/');
+  for(const label of ['조회','1교시','3교시','5교시','종례'])assert.equal(f.wanted.get(label).value.content,'');
+});

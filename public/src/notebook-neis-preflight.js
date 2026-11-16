@@ -12,7 +12,7 @@ export function prepareNeisTransfer(payload){
   const date=new Date(String(row.date)+'T00:00:00Z');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||!Number.isFinite(+date)||date.toISOString().slice(0,10)!==row.date)throw new Error((index+1)+'번째 기록의 실제 출결일을 확인해 주세요.');
   if(!/^[1-3]\d{4}$/.test(String(row.studentId||'')))throw new Error(row.studentName+': 명렬표에서 학번을 확인해 주세요.');
-  if(!['결석','지각','조퇴'].includes(row.attendanceType))throw new Error(row.studentName+': '+topic(row.attendanceType||'출결 구분')+' 도우미 자동입력 지원 전입니다. 나이스에서 직접 입력해 주세요.');
+  if(!['결석','지각','조퇴','결과'].includes(row.attendanceType))throw new Error(row.studentName+': '+topic(row.attendanceType||'출결 구분')+' 도우미 자동입력 지원 전입니다. 나이스에서 직접 입력해 주세요.');
   if(!['질병','미인정','출석인정','기타'].includes(row.reasonType))throw new Error(row.studentName+': 사유 구분을 확인해 주세요.');
   if(row.lessonCount!==undefined&&![1,2,3,4,5,6,7,8,'1','2','3','4','5','6','7','8'].includes(row.lessonCount))throw new Error(row.studentName+': 실제 수업 교시 수를 확인해 주세요.');
   const day=date.getUTCDay();if((day===0||day===6)&&!row.lessonCount)throw new Error(row.studentName+': 주말 실제 수업 교시 수를 먼저 지정해 주세요.');
@@ -25,8 +25,10 @@ export function prepareNeisTransfer(payload){
    const selected=new Set([...numbers].map(n=>n+'교시'));if(text.includes('조회'))selected.add('조회');if(text.includes('종례'))selected.add('종례');
    const indices=labels.map((label,i)=>selected.has(label)?i:-1).filter(i=>i>=0);
    if(!indices.length)throw new Error(row.studentName+': 빠진 교시를 확인해 주세요.');
+   if(row.attendanceType!=='결과'){
    const expected=row.attendanceType==='지각'?labels.slice(0,Math.max(...indices)+1):labels.slice(Math.min(...indices));
    if(expected.length!==selected.size||expected.some(label=>!selected.has(label)))throw new Error(row.studentName+': '+(row.attendanceType==='지각'?'조회부터 마지막 빠진 교시까지':'처음 빠진 교시부터 종례까지')+' 이어지게 선택해 주세요.');
+   }
   }
   const key=row.studentId+'|'+row.date;if(seen.has(key))throw new Error(row.studentName+' · '+row.date+': 같은 학생·날짜의 기록이 겹칩니다. 앱에서 내용을 확인한 뒤 한 건으로 보내 주세요.');seen.add(key);
   return row;

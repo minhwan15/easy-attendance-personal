@@ -153,10 +153,11 @@
     const id=identity(row),day=new Date(`${id.date}T00:00:00Z`).getUTCDay();
     if((!day||day===6)&&![1,2,3,4,5,6,7,8].includes(Number(row.lessonCount)))throw new Error('주말 수업 교시를 먼저 확인해 주세요.');
     const labels=['조회',...Array.from({length:[1,2,3,4,5,6,7,8].includes(Number(row.lessonCount))?Number(row.lessonCount):day===1||day===5?7:6},(_,i)=>`${i+1}교시`),'종례'];
-    if(!plan||plan.kind!==row.attendanceType||!Array.isArray(plan.marks)||!['결석','지각','조퇴'].includes(plan.kind))throw new Error('이 출결 종류는 교시 자동입력을 지원하지 않습니다.');
+    if(!plan||plan.kind!==row.attendanceType||!Array.isArray(plan.marks)||!['결석','지각','조퇴','결과'].includes(plan.kind))throw new Error('이 출결 종류는 교시 자동입력을 지원하지 않습니다.');
+    if(plan.kind==='결과'){if(!plan.marks.length||plan.marks.some(x=>!labels.includes(x))||new Set(plan.marks).size!==plan.marks.length)throw new Error('결과 교시를 확인해 주세요.');}else{
     const index=labels.indexOf(plan.boundary);
     const expected=plan.kind==='결석'?labels:plan.kind==='지각'?labels.slice(0,index+1):labels.slice(index);
-    if((plan.kind!=='결석'&&index<0)||expected.length!==plan.marks.length||expected.some((x,i)=>x!==plan.marks[i]))throw new Error('교시 계산 결과를 확인해 주세요.');
+    if((plan.kind!=='결석'&&index<0)||expected.length!==plan.marks.length||expected.some((x,i)=>x!==plan.marks[i]))throw new Error('교시 계산 결과를 확인해 주세요.');}
     if(!['질병','미인정','기타','출석인정'].includes(row.reasonType)||typeof row.reason!=='string'||!row.reason.trim()||row.reason.length>2000)throw new Error('종류·구분·사유를 확인해 주세요.');
     return labels;
   }
@@ -219,7 +220,19 @@
       if(!enabled(popup.apply))throw new Error('적용 버튼을 누를 수 없습니다.');
       checkCancelled();stage='적용';popup.apply.click();
       await waitFor(()=>{const t=again();return expectedKind(row).includes(value(t.map.get('마감')))&&value(t.map.get('사유'))===clean(row.reason);},'적용 결과를 확인하지 못했습니다. 학생 행의 마감·사유를 확인해 주세요.');
-      if(!completed(row,plan,again())&&plan.boundary) {
+      if(plan.kind==='결과'){
+        // 결과: 빠진 교시 칸을 하나씩 눌러 '/' 표시가 생기는지 확인합니다.
+        for(const label of plan.marks){
+          if(state(again()).marks.includes(label))continue;
+          const cell=again().map.get(label);const clickTarget=cell.querySelector('.cl-text')||cell.querySelector('.cl-control')||cell;
+          if(!enabled(clickTarget))throw new Error(`${label} 칸을 누를 수 없습니다.`);
+          stage=`${label} 클릭`;checkCancelled();clickTarget.click();
+          await waitFor(()=>state(again()).marks.includes(label),`${label} 표시를 확인하지 못했습니다. 나이스의 교시 칸을 확인해 주세요.`);
+          const extra=state(again()).marks.filter(x=>!plan.marks.includes(x));
+          if(extra.length)throw new Error(`앱에 없는 ${extra.join('·')}까지 표시되었습니다. 나이스 학생 행을 확인해 주세요.`);
+        }
+      }
+      else if(!completed(row,plan,again())&&plan.boundary) {
         const current=again(),isFree=label=>freeLabels.has(label)||value(current.map.get(label))==='공강';
         // 기준 교시가 공강이면 지각은 앞쪽, 조퇴는 뒤쪽의 가장 가까운 수업 교시를 누릅니다.
         const ordered=plan.kind==='지각'?[...plan.marks].reverse():plan.marks;
