@@ -26,7 +26,13 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       respond({ok:false,error:'허용되지 않은 기록장 연결입니다.'});return;
     }
     // Invoke immediately: storage reads or other awaits would lose the click gesture.
-    chrome.sidePanel.open({windowId:sender.tab.windowId}).then(()=>respond({ok:true}),()=>respond({ok:false,error:'도우미 창을 자동으로 열지 못했습니다. 확장 프로그램 아이콘으로 열어 주세요.'}));
+    const windowId=sender.tab.windowId,neisUrl=/^https:\/\/[a-z]{3}\.neis\.go\.kr\/$/.test(message.neisUrl||'')?message.neisUrl:'';
+    chrome.sidePanel.open({windowId}).then(async()=>{
+      // 도우미 창을 연 다음 나이스로 이동: 열린 나이스 탭이 있으면 그 탭, 없으면 새 탭.
+      let neisOpened=false;
+      if(neisUrl){try{const tabs=await chrome.tabs.query({windowId,url:'https://*.neis.go.kr/*'});if(tabs.length)await chrome.tabs.update(tabs[0].id,{active:true});else await chrome.tabs.create({windowId,url:neisUrl,index:sender.tab.index+1});neisOpened=true;}catch{}}
+      respond({ok:true,neisOpened});
+    },()=>respond({ok:false,error:'도우미 창을 자동으로 열지 못했습니다. 확장 프로그램 아이콘으로 열어 주세요.'}));
     return true;
   }
   if (![APP_MESSAGE, PANEL_MESSAGE].includes(message?.type)) return;

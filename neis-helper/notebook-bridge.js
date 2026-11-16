@@ -9,7 +9,8 @@
   document.addEventListener('click',event=>{
     const button=event.target?.closest?.('#send-neis-helper,#morning-neis,[data-neis-send],[data-exam-send]');
     if(!event.isTrusted||!button||button.disabled)return;
-    panelOpening=chrome.runtime.sendMessage({type:requestType,protocol:1,command:'open-panel'})
+    const neisUrl=/^https:\/\/[a-z]{3}\.neis\.go\.kr\/$/.test(button.dataset?.neisUrl||'')?button.dataset.neisUrl:'';
+    panelOpening=chrome.runtime.sendMessage({type:requestType,protocol:1,command:'open-panel',...(neisUrl?{neisUrl}:{})})
       .catch(()=>({ok:false}));
   },true);
   window.addEventListener('message', async event => {
@@ -28,6 +29,6 @@
     } catch { result = { ok: false, error: '도우미 연결이 끊겼습니다. 확장 프로그램과 앱을 새로고침해 주세요.' }; }
     const panelResult=message.command==='queue'&&panelOpening?await panelOpening:null;
     window.postMessage({ type: responseType, protocol: 1, requestId: message.requestId, command: message.command,
-      ok: result?.ok === true, available: result?.available === true, count: result?.count, error: result?.error, completed:result?.completed, ...(panelResult?{panelOpened:panelResult.ok===true}: {}) }, origin);
+      ok: result?.ok === true, available: result?.available === true, count: result?.count, error: result?.error, completed:result?.completed, ...(panelResult?{panelOpened:panelResult.ok===true,neisOpened:panelResult.neisOpened===true}: {}) }, origin);
   });
 })();
