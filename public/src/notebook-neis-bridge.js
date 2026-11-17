@@ -38,7 +38,7 @@ export async function sendToNeisHelper(payload, { targetWindow = globalThis.wind
   const reply = await request(targetWindow, 'queue', payload, sendTimeout);
   if (!reply) throw new Error('도우미의 수신 확인이 늦어지고 있습니다. PC 도우미의 입력 대기를 확인한 뒤 다시 보내 주세요.');
   if (!reply.ok) throw new Error(reply.error || '도우미로 입력 자료를 보내지 못했습니다.');
-  return { sent: true, count: reply.count };
+  return { sent: true, count: reply.count, neisOpened: reply.neisOpened === true };
 }
 
 /** Saved only after the teacher explicitly confirms the real NEIS save result. */

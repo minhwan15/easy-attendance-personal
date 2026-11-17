@@ -374,7 +374,7 @@ function reportStrip(){
 }
 function selectableQueue(records,date=state.queueDate){const seen=new Set();return [...queueDateRecords(records,date),...reportQueueRecords(records,date)].filter(r=>!seen.has(r.id)&&seen.add(r.id));}
 /* 출결 입력 보내기와 함께 우리 지역 나이스를 엽니다. 이미 연 탭이 있으면 새로 열지 않습니다. */
-let neisWindow=null;
+let neisWindow=null,lastHelperSend={sent:false,neisOpened:false};
 /** PC에서 바로가기 앱 창으로 열면 크롬이 도우미 창(사이드 패널)을 붙이지 못합니다. */
 function appWindowNotice(){
   try{if(!matchMedia('(display-mode: standalone)').matches&&!matchMedia('(display-mode: window-controls-overlay)').matches)return '';if(!matchMedia('(pointer: fine)').matches)return '';}catch{return '';}
@@ -521,7 +521,9 @@ function bindWorkspace() {
     const region=neisRegionOf(state.experienceSettings);
     if(!region)return chooseNeisRegion(()=>toast('나이스 지역을 저장했습니다. 보내기를 한 번 더 눌러 주세요.'));
     // 나이스 탭은 도우미가 도우미 창을 연 다음 직접 엽니다(앱이 먼저 열면 도우미 창이 가려짐).
-    exportSelected(format,purpose);
+    // 도우미가 나이스를 열지 못했으면(예전 도우미 등) 도우미 창이 열린 뒤 앱이 대신 엽니다.
+    lastHelperSend={sent:false,neisOpened:false};
+    exportSelected(format,purpose).then(()=>{if(lastHelperSend.sent&&!lastHelperSend.neisOpened)openNeisNow(region);});
   };}
   document.getElementById('open-neis-too')?.addEventListener('change',event=>{try{localStorage.setItem('openNeisToo',event.target.checked?'1':'0');}catch{}document.querySelectorAll('#send-neis-helper,#send-neis-report').forEach(button=>button.dataset.neisUrl=neisLinkAttr());});
   document.getElementById('neis-region')?.addEventListener('click',()=>chooseNeisRegion());
@@ -1066,6 +1068,7 @@ async function exportSelected(format,purpose='attendance') {
     if(format==='helper'){
       const payload={schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),workMode:state.neisPurpose==='report'?'report':'attendance',rows};
       const result=await sendToNeisHelper(payload);
+      lastHelperSend={sent:result.sent===true,neisOpened:result.neisOpened===true};
       if(result.sent){if(state.neisPurpose!=='report')records.forEach(r=>{const original=state.records.find(x=>x.id===r.id);if(original)sentSnapshots.set(r.id,clone(original));});showStatus(state.neisPurpose==='report'?`${rows.length}건을 신고서 접수용으로 보냈습니다. 도우미에서 ‘학부모 신고서 접수’를 선택하세요. 출결 완료 상태는 유지됩니다.`:`${rows.length}건을 도우미로 보냈습니다. 나이스 입력·저장은 아직 완료되지 않았습니다.`);renderWorkspace();}
       else{showStatus('도우미와 연결되지 않았습니다. PC Chrome에서 도우미가 켜져 있는지 확인하고 기록함을 새로고침하세요. 파일로 옮기려면 아래 ‘다른 방법’을 펼치세요.');const other=document.querySelector('[data-neis-other]');if(other)other.open=true;}
     }else if(format==='copy'){
