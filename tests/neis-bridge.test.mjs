@@ -108,7 +108,7 @@ test('app handshake sends no student payload when the helper is absent', async (
 
 test('app transfer reports receiver acknowledgement and cleans up listeners', async () => {
   const fake = fakeWindow(request => request.command === 'hello' ? { ok: true, available: true } : { ok: true, count: 1 });
-  assert.deepEqual(await sendToNeisHelper(payload(), { targetWindow: fake.target }), { sent: true, count: 1 });
+  assert.deepEqual(await sendToNeisHelper(payload(), { targetWindow: fake.target }), { sent: true, count: 1, neisOpened: false });
   assert.deepEqual(fake.sent[1].payload, payload()); assert.equal(fake.listeners.size, 0);
 });
 
