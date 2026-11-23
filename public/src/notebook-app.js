@@ -719,6 +719,7 @@ function dateRange(start,end) {
   while(value<=last&&list.length<=366){list.push(value.toISOString().slice(0,10));value.setUTCDate(value.getUTCDate()+1);}
   return list;
 }
+let weekdayPicks=new Set();
 function attendanceDatesHtml() {
   const dates=dateRange(draft.startDate,draft.endDate||draft.startDate),weekdays=['일','월','화','수','목','금','토'];
   if(dates.length<=1){
@@ -797,7 +798,6 @@ function bindEditor() {
   }});
   bindAttachments();bindDates();bindPeriodSelector();
 }
-let weekdayPicks=new Set();
 function bindDates() {
   document.querySelectorAll('[data-pick-weekday]').forEach(button=>button.onclick=()=>{
     readDraft();const day=Number(button.dataset.pickWeekday);weekdayPicks.has(day)?weekdayPicks.delete(day):weekdayPicks.add(day);
