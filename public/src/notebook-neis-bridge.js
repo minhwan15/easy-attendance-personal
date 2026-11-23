@@ -27,6 +27,9 @@ function request(target, command, payload, timeoutMs) {
 }
 
 /** Call only from the teacher's send button. No login, API calls or NEIS save is performed. */
+/** 앱과 함께 배포된 최신 도우미 버전. 이보다 낮으면 업데이트 안내를 띄웁니다. */
+export const LATEST_HELPER_VERSION = '1.0.12';
+const olderThan = (a, b) => { const x = String(a || '0').split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); } return false; };
 export async function sendToNeisHelper(payload, { targetWindow = globalThis.window, helloTimeout = 900, sendTimeout = 5000 } = {}) {
   if (!targetWindow || targetWindow.location?.origin !== NOTEBOOK_ORIGIN) return { sent: false, reason: 'unavailable' };
   payload=prepareNeisTransfer(payload);
@@ -38,7 +41,7 @@ export async function sendToNeisHelper(payload, { targetWindow = globalThis.wind
   const reply = await request(targetWindow, 'queue', payload, sendTimeout);
   if (!reply) throw new Error('도우미의 수신 확인이 늦어지고 있습니다. PC 도우미의 입력 대기를 확인한 뒤 다시 보내 주세요.');
   if (!reply.ok) throw new Error(reply.error || '도우미로 입력 자료를 보내지 못했습니다.');
-  return { sent: true, count: reply.count, neisOpened: reply.neisOpened === true };
+  return { sent: true, count: reply.count, neisOpened: reply.neisOpened === true, ...(olderThan(hello.version, LATEST_HELPER_VERSION) ? { outdated: hello.version || '예전 버전' } : {}) };
 }
 
 /** Saved only after the teacher explicitly confirms the real NEIS save result. */

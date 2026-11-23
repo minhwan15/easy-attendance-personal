@@ -107,7 +107,7 @@ test('app handshake sends no student payload when the helper is absent', async (
 });
 
 test('app transfer reports receiver acknowledgement and cleans up listeners', async () => {
-  const fake = fakeWindow(request => request.command === 'hello' ? { ok: true, available: true } : { ok: true, count: 1 });
+  const fake = fakeWindow(request => request.command === 'hello' ? { ok: true, available: true, version: '9.9.9' } : { ok: true, count: 1 });
   assert.deepEqual(await sendToNeisHelper(payload(), { targetWindow: fake.target }), { sent: true, count: 1, neisOpened: false });
   assert.deepEqual(fake.sent[1].payload, payload()); assert.equal(fake.listeners.size, 0);
 });
@@ -122,7 +122,7 @@ test('a missing queue acknowledgement or rejection is not reported as unavailabl
 
 test('extension installation scope remains exact and needs no new broad host permissions', async () => {
   const manifest = JSON.parse(await readFile(new URL('../neis-helper/manifest.json', import.meta.url), 'utf8'));
-  assert.equal(manifest.version, '1.0.11');
+  assert.equal(manifest.version, '1.0.12');
   assert.deepEqual(manifest.content_scripts[0].matches, [`${NOTEBOOK_ORIGIN}/*`]);
   assert.equal(manifest.content_scripts[0].all_frames, false);
   assert.deepEqual(manifest.host_permissions, ['https://*.neis.go.kr/*']);
@@ -142,3 +142,8 @@ test('report purpose is retained for app imports and legacy queues default to at
  assert.equal(store.state().workMode,'report');
 });
 
+test('an older helper is flagged so the app can ask for an update',async()=>{
+  const fake=fakeWindow(request=>request.command==='hello'?{ok:true,available:true}:{ok:true,count:1});
+  const result=await sendToNeisHelper(payload(),{targetWindow:fake.target});
+  assert.equal(result.outdated,'예전 버전');
+});

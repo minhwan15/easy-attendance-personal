@@ -29,7 +29,7 @@ import { usageDays } from './notebook-experience-grid-model.js';
 import { normalizeExperienceSettings } from './notebook-experience-settings.js';
 import { openExperienceNeis } from './notebook-experience-neis.js';
 import { applyNeisCompletion } from './notebook-neis-completion.js';
-import { sendToNeisHelper, completedNeisRows, acknowledgeNeisRows } from './notebook-neis-bridge.js';
+import { sendToNeisHelper, completedNeisRows, acknowledgeNeisRows, LATEST_HELPER_VERSION } from './notebook-neis-bridge.js';
 import { neisGuideHtml, chromeNeisNoticeHtml } from './notebook-neis-guide.js';
 import { clipboardImages, clipboardText } from './notebook-paste.js';
 import { parseAttendanceTable, openBatchEditor } from './notebook-batch.js';
@@ -1071,6 +1071,7 @@ async function exportSelected(format,purpose='attendance') {
       const payload={schemaVersion:1,source:'teacher-notebook',exportedAt:new Date().toISOString(),workMode:state.neisPurpose==='report'?'report':'attendance',rows};
       const result=await sendToNeisHelper(payload);
       lastHelperSend={sent:result.sent===true,neisOpened:result.neisOpened===true};
+      if(result.outdated)setTimeout(()=>alert(`설치된 나이스 도우미가 예전 버전(${result.outdated})입니다.\n결과 자동입력 등 새 기능이 동작하지 않습니다.\n\n홈 → 나이스 도우미 설치 안내에서 새 도우미(${LATEST_HELPER_VERSION})를 받아\n크롬 확장 프로그램에서 기존 도우미를 지우고 다시 설치한 뒤, 이 탭을 새로고침하세요.`),300);
       if(result.sent){if(state.neisPurpose!=='report')records.forEach(r=>{const original=state.records.find(x=>x.id===r.id);if(original)sentSnapshots.set(r.id,clone(original));});showStatus(state.neisPurpose==='report'?`${rows.length}건을 신고서 접수용으로 보냈습니다. 도우미에서 ‘학부모 신고서 접수’를 선택하세요. 출결 완료 상태는 유지됩니다.`:`${rows.length}건을 도우미로 보냈습니다. 나이스 입력·저장은 아직 완료되지 않았습니다.`);renderWorkspace();}
       else{showStatus('도우미와 연결되지 않았습니다. PC Chrome에서 도우미가 켜져 있는지 확인하고 기록함을 새로고침하세요. 파일로 옮기려면 아래 ‘다른 방법’을 펼치세요.');const other=document.querySelector('[data-neis-other]');if(other)other.open=true;}
     }else if(format==='copy'){
