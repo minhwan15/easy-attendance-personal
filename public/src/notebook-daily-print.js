@@ -39,15 +39,19 @@ export function dailyPrintHtml(students, records, date) {
   const title = sample ? `${sample[0]}학년 ${Number(sample.slice(1, 3))}반 출결 현황` : '출결 현황';
   const count = re => rows.filter(r => r.labels.some(l => re.test(l))).length;
   const summary = [['결석', /결석$/], ['지각', /지각$/], ['조퇴', /조퇴$/], ['결과', /결과$/], ['체험학습', /^체험학습$/]].map(([k, re]) => `${k} <b>${count(re)}</b>`).join(' · ');
-  const body = rows.map(r => `<tr class="${r.labels.length ? 'has' : ''}"><td class="no">${r.number}</td><td class="name">${esc(r.name)}</td><td class="state">${esc(r.labels.join(', '))}</td></tr>`).join('');
+  // 명렬표처럼 왼쪽 1~17번, 오른쪽 18~33번
+  const half = Math.ceil(rows.length / 2);
+  const cell = r => r ? `<td class="no ${r.labels.length ? 'has' : ''}">${r.number}</td><td class="name ${r.labels.length ? 'has' : ''}">${esc(r.name)}</td><td class="state ${r.labels.length ? 'has' : ''}">${esc(r.labels.join(', '))}</td>` : '<td class="no"></td><td class="name"></td><td class="state"></td>';
+  const body = Array.from({ length: half }, (_, i) => `<tr>${cell(rows[i])}<td class="gap"></td>${cell(rows[i + half])}</tr>`).join('');
   return `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><title>${esc(title)} ${esc(when)}</title><style>
 @page{size:A4 portrait;margin:12mm 14mm}*{box-sizing:border-box}body{font-family:'Pretendard','Malgun Gothic',sans-serif;margin:0;color:#111}
 header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4mm}h1{font-size:20pt;margin:0}.date{font-size:14pt;font-weight:700}
-.sum{font-size:11pt;margin:0 0 3mm}table{width:100%;border-collapse:collapse;font-size:12pt}th,td{border:1px solid #444;height:6.9mm;padding:0 3mm}
-th{background:#eee;font-size:11pt}.no{width:14mm;text-align:center}.name{width:42mm}.state{font-weight:700}tr.has td{background:#f3f3f3}
-@media print{tr.has td{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+.sum{font-size:11pt;margin:0 0 3mm}table{width:100%;border-collapse:collapse;font-size:13pt;table-layout:fixed}th,td{border:1px solid #444;height:13.2mm;padding:0 2mm}
+th{background:#eee;font-size:11pt;height:8mm}.no{width:13mm;text-align:center;white-space:nowrap}.name{width:25mm;text-align:center}.state{font-weight:800;text-align:center;font-size:12pt}
+td.gap,th.gap{width:4mm;border:0;background:none}td.has{background:#ececec}
+@media print{td.has,th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
 <header><h1>${esc(title)}</h1><div class="date">${esc(when)}</div></header><p class="sum">${summary}</p>
-<table><thead><tr><th class="no">번호</th><th class="name">이름</th><th>출결</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
+<table><thead><tr><th class="no">번호</th><th class="name">이름</th><th class="state">출결</th><th class="gap"></th><th class="no">번호</th><th class="name">이름</th><th class="state">출결</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
 }
 
 export function printDailyAttendance(students, records, date) {
