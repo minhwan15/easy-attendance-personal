@@ -16,6 +16,7 @@ import { recognizeFiles, prepareAttachment } from './notebook-ocr.js';
 import { openRosterManager } from './notebook-roster-ui.js';
 import { findRepeatWarnings, needsRepeatCheck, repeatWarningMessage, warningPhrasesFor } from './notebook-repeat-warning.js';
 import { openSettings } from './notebook-settings-ui.js';
+import { printDailyAttendance } from './notebook-daily-print.js';
 import { NEIS_REGIONS, neisRegionOf, neisRegionName, neisUrl } from './notebook-neis-region.js';
 import { mountSmsInbox } from './notebook-sms-ui.js';
 import { reasonShortcuts } from './notebook-reason-shortcuts.js';
@@ -406,7 +407,7 @@ function queueContent(records) {
   const reportMode=state.neisPurpose==='report',unified=state.section==='attendance',visible=recordsForDateDisplay(records,state.queueDate).filter(record=>!reportMode||reportQueueRecords([record],state.queueDate).length);
   const ready=selectableQueue(records,state.queueDate);
   const dateChoices=reportMode?displayQueueDates(reportQueueRecords(records)):unified?displayQueueDates(records):queueDates(records);
-  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary>${queueDateCalendar(dateChoices,date=>(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length)}</details>`;
+  const dateControls=`<div class="queue-date-tools"><label>입력 날짜<input type="date" id="queue-date" value="${state.queueDate}"></label><button class="btn small ${state.queueDate===today()?'primary':''}" data-queue-date="${today()}">오늘</button><button class="btn small ${!state.queueDate?'primary':''}" data-queue-date="">전체 날짜</button><button class="btn small daily-print-btn" type="button" id="print-daily" title="번호·이름·출결만 나오는 교실 게시용(사유 없음)">🖨 ${shortDate(state.queueDate||today())} 출결 현황 출력</button></div><details class="queue-date-history"><summary>기록 있는 날짜 · ${dateChoices.length}일</summary>${queueDateCalendar(dateChoices,date=>(reportMode?reportQueueRecords(records,date):unified?recordsForDateDisplay(records,date):queueDateRecords(records,date)).length)}</details>`;
   const bulkLessonTargets=unified&&state.queueDate?state.records.filter(r=>r.category==='attendance'&&r.startDate===state.queueDate&&!isPracticalRecord(r)&&!isExamRecord(r)):[];
   const storedBulkCounts=[...new Set(bulkLessonTargets.map(r=>Number(r.lessonCount)).filter(count=>Number.isInteger(count)&&count>=1&&count<=8))];
   const bulkLessonDefault=Math.max(1,schoolPeriodsForDate(state.queueDate).length);
@@ -448,6 +449,7 @@ function bindRecordDelete(root=document) {
   });
 }
 function bindWorkspace() {
+  document.querySelector('#print-daily')?.addEventListener('click',()=>printDailyAttendance(knownStudents(),state.records,state.queueDate||today()));
   document.querySelector('#pr-upload')?.addEventListener('click',()=>document.querySelector('#pr-files').click());
   document.querySelector('#pr-files')?.addEventListener('change',async event=>{const files=[...event.target.files];event.target.value='';if(!files.length)return;const error=document.querySelector('#pr-error');try{setReportImports(await readReportFiles(files,state.reportImports));renderWorkspace();}catch(e){error.textContent=e.message;}});
   document.querySelector('.pr-all')?.addEventListener('toggle',event=>{state.reportTableOpen=event.target.open;});
