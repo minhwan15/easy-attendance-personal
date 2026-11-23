@@ -167,3 +167,4 @@
 .chip-field{grid-column:1/-1}.chip-choice{white-space:nowrap}
 .app-window-notice{flex:1 1 100%;margin:6px 0 0;padding:8px 12px;border-radius:10px;background:#fff1d6;color:#7a4f00;font-size:13px;line-height:1.5}
 .queue-date-tools .daily-print-btn{margin-left:auto;background:#fff;border-color:#2f6b4f;color:#2f6b4f;font-weight:700}
+.weekday-picks{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 8px}.weekday-picks>span{font-size:12px;font-weight:700;color:var(--muted);margin-right:2px}.weekday-picks .chip-choice{min-height:32px;min-width:40px;padding:4px 8px;font-size:13px}.weekday-picks small{flex:1 1 100%;font-size:11px;color:var(--muted)}

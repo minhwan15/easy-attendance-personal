@@ -20,7 +20,7 @@ import { printDailyAttendance } from './notebook-daily-print.js';
 import { NEIS_REGIONS, neisRegionOf, neisRegionName, neisUrl } from './notebook-neis-region.js';
 import { mountSmsInbox } from './notebook-sms-ui.js';
 import { reasonShortcuts } from './notebook-reason-shortcuts.js';
-import { condolenceStart, condolenceFollowup, CONDOLENCE_RETURNED } from './notebook-condolence.js';
+import { condolenceStart, condolenceFollowup, CONDOLENCE_RETURNED, PUBLIC_HOLIDAYS } from './notebook-condolence.js';
 import { openPassEditor } from './notebook-pass-ui.js';
 import { PASS_LABELS } from './notebook-pass-model.js';
 import { academicYear } from './notebook-experience-usage.js';
@@ -594,6 +594,7 @@ function startNew(sourceType) {
   openEditor(record,sourceType);
 }
 function openEditor(record,sourceType) {
+  weekdayPicks=new Set();
   if(record&&isExamRecord(record)){location.href='/exams.html';return;}
   if(!record)return;
   if(uploadController)uploadController.abort();
@@ -724,7 +725,7 @@ function attendanceDatesHtml() {
     draft.attendanceDates=dates;
     return `<div id="attendance-dates">${dates.length?`<input type="hidden" name="attendanceDates" value="${dates[0]}">`:''}</div>`;
   }
-  return `<div class="dates-box" id="attendance-dates"><div class="dates-heading"><label class="field-label">출결 처리할 날짜</label><button type="button" class="text-btn" id="select-weekdays">평일만 선택</button></div><p>휴업일을 제외하고 선택하세요.</p>${dates.length>366?'<p>기간을 1년 이내로 나누어 작성해 주세요.</p>':`<div class="date-weekdays">${weekdays.map(day=>`<span>${day}</span>`).join('')}</div><div class="date-pills date-calendar">${Array.from({length:new Date(`${dates[0]}T12:00:00Z`).getUTCDay()},()=>'<span class="date-empty" aria-hidden="true"></span>').join('')}${dates.map(date=>{const day=new Date(`${date}T12:00:00Z`).getUTCDay(),done=draft.neisConfirmedDates?.includes(date)||(draft.entryStatus==='confirmed'&&draft.attendanceDates.includes(date));return `<label class="date-pill ${day===0||day===6?'weekend':''} ${done?'date-completed':''}" ${done?'title="나이스 입력 완료"':''}><input type="checkbox" name="attendanceDates" value="${date}" ${draft.attendanceDates.includes(date)?'checked':''}><span>${shortDate(date)} ${weekdays[day]}</span>${done?'<small>입력 완료</small>':''}</label>`;}).join('')}</div>`}</div>`;
+  return `<div class="dates-box" id="attendance-dates"><div class="dates-heading"><label class="field-label">출결 처리할 날짜</label><button type="button" class="text-btn" id="select-weekdays">평일만 선택</button></div><div class="weekday-picks"><span>요일 반복</span>${[1,2,3,4,5].map(day=>`<button type="button" class="chip-choice ${weekdayPicks.has(day)?'is-on':''}" data-pick-weekday="${day}" aria-pressed="${weekdayPicks.has(day)}">${weekdays[day]}</button>`).join('')}<small>예체능 등 매주 같은 요일 조퇴·결과는 요일을 누르면 기간 안의 그 요일만 선택됩니다(공휴일 제외).</small></div><p>휴업일을 제외하고 선택하세요.</p>${dates.length>366?'<p>기간을 1년 이내로 나누어 작성해 주세요.</p>':`<div class="date-weekdays">${weekdays.map(day=>`<span>${day}</span>`).join('')}</div><div class="date-pills date-calendar">${Array.from({length:new Date(`${dates[0]}T12:00:00Z`).getUTCDay()},()=>'<span class="date-empty" aria-hidden="true"></span>').join('')}${dates.map(date=>{const day=new Date(`${date}T12:00:00Z`).getUTCDay(),done=draft.neisConfirmedDates?.includes(date)||(draft.entryStatus==='confirmed'&&draft.attendanceDates.includes(date));return `<label class="date-pill ${day===0||day===6?'weekend':''} ${done?'date-completed':''}" ${done?'title="나이스 입력 완료"':''}><input type="checkbox" name="attendanceDates" value="${date}" ${draft.attendanceDates.includes(date)?'checked':''}><span>${shortDate(date)} ${weekdays[day]}</span>${done?'<small>입력 완료</small>':''}</label>`;}).join('')}</div>`}</div>`;
 }
 function warningsHtml() {return editorWarnings.length?`<ul class="extraction-warnings">${editorWarnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:'';}
 function conversationCandidatesHtml() {
@@ -796,7 +797,15 @@ function bindEditor() {
   }});
   bindAttachments();bindDates();bindPeriodSelector();
 }
+let weekdayPicks=new Set();
 function bindDates() {
+  document.querySelectorAll('[data-pick-weekday]').forEach(button=>button.onclick=()=>{
+    readDraft();const day=Number(button.dataset.pickWeekday);weekdayPicks.has(day)?weekdayPicks.delete(day):weekdayPicks.add(day);
+    const range=dateRange(draft.startDate,draft.endDate||draft.startDate);
+    draft.attendanceDates=weekdayPicks.size?range.filter(d=>weekdayPicks.has(new Date(`${d}T12:00:00Z`).getUTCDay())&&!PUBLIC_HOLIDAYS.has(d)):range.filter(d=>![0,6].includes(new Date(`${d}T12:00:00Z`).getUTCDay()));
+    draft.reviewStatus='draft';document.querySelector('#attendance-dates').outerHTML=attendanceDatesHtml();bindDates();
+    toast(weekdayPicks.size?`매주 ${[...weekdayPicks].sort().map(x=>'일월화수목금토'[x]).join('·')}요일 ${draft.attendanceDates.length}일을 선택했습니다.`:'요일 반복을 풀고 평일 전체를 선택했습니다.');
+  });
   const button=document.querySelector('#select-weekdays');if(button)button.onclick=()=>{
     readDraft();draft.attendanceDates=dateRange(draft.startDate,draft.endDate||draft.startDate).filter(d=>![0,6].includes(new Date(`${d}T12:00:00Z`).getUTCDay()));draft.reviewStatus='draft';
     document.querySelector('#attendance-dates').outerHTML=attendanceDatesHtml();bindDates();toast('평일을 선택했습니다. 학교 휴업일 등은 직접 해제해 주세요.');
