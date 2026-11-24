@@ -29,3 +29,10 @@
   .experience-grid .eg-table tbody td,.experience-grid .eg-table tbody th{font-size:11px}
   .experience-grid .eg-cell.eg-approved:before{width:3px;height:3px;right:2px;bottom:2px}
 }
+/* 학생 줄 강조: 번호·이름 클릭 */
+.experience-grid tbody .eg-number,.experience-grid tbody .eg-name{cursor:pointer}
+.experience-grid tbody tr:hover>*{background-image:linear-gradient(rgba(48,106,83,.06),rgba(48,106,83,.06))}
+.experience-grid tbody tr.eg-row-focus>*{border-top:2px solid #d0342c!important;border-bottom:2px solid #d0342c!important;background-image:linear-gradient(rgba(208,52,44,.07),rgba(208,52,44,.07))}
+.experience-grid tbody tr.eg-row-focus>:first-child{border-left:2px solid #d0342c!important}
+.experience-grid tbody tr.eg-row-focus>:last-child{border-right:2px solid #d0342c!important}
+.experience-grid tbody tr.eg-row-focus .eg-name{color:#b3261e}
