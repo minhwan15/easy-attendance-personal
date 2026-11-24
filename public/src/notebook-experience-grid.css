@@ -10,3 +10,22 @@
 @media(max-width:780px){.experience-grid .eg-recovery{padding-left:12px;padding-right:12px}.experience-grid .eg-recovery .btn{font-size:11px}}
 
 .experience-grid [data-grid-mark][aria-pressed="true"]{outline:2px solid var(--green,#306a53);outline-offset:2px;box-shadow:0 0 0 4px #306a5314;font-weight:750}
+/* PC: 한 반(33명 내외)이 스크롤 없이 한 화면에 들어오도록 촘촘하게 */
+@media(min-width:781px){
+  .experience-grid .eg-scroll{max-height:calc(100vh - 70px)}
+  .experience-grid .eg-table th,.experience-grid .eg-table td{height:16px}
+  .experience-grid .eg-table thead tr:first-child th{top:0;height:22px}
+  .experience-grid .eg-table thead tr:nth-child(2) th{top:22px;height:30px}
+  .experience-grid .eg-table thead tr:nth-child(3) th{top:52px;height:16px}
+  .experience-grid .eg-date span{font-size:11px;line-height:1.15}.experience-grid .eg-date small{font-size:9px;line-height:1.1}
+  .experience-grid .eg-exclusion button{height:15px;font-size:10px;line-height:15px}
+  .experience-grid .eg-table thead .eg-fixed{line-height:1.15;font-size:10px}
+  .experience-grid .eg-cell input{height:15px;font-size:12px;line-height:15px}
+  .experience-grid .eg-name{font-size:12px;padding:0 3px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .experience-grid .eg-name small{display:none}
+  .experience-grid .eg-baseline input{height:14px;box-sizing:border-box;padding:0;font-size:11px;line-height:12px;border-radius:3px}
+  .experience-grid .eg-cell input{box-sizing:border-box}
+  .experience-grid .eg-table tbody th,.experience-grid .eg-table tbody td{line-height:14px}
+  .experience-grid .eg-table tbody td,.experience-grid .eg-table tbody th{font-size:11px}
+  .experience-grid .eg-cell.eg-approved:before{width:3px;height:3px;right:2px;bottom:2px}
+}
