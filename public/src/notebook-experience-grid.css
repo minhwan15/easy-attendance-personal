@@ -36,3 +36,9 @@
 .experience-grid tbody tr.eg-row-focus>:first-child{border-left:2px solid #d0342c!important}
 .experience-grid tbody tr.eg-row-focus>:last-child{border-right:2px solid #d0342c!important}
 .experience-grid tbody tr.eg-row-focus .eg-name{color:#b3261e}
+/* 맨 아래 날짜별 체험학습 인원 */
+.experience-grid tfoot .eg-count-row>*{position:sticky;bottom:0;z-index:3;background:#eef5f0;border-top:2px solid #9fb8a8;font-weight:800;color:#2f6b4f}
+.experience-grid tfoot .eg-count-row>.eg-fixed{z-index:6;background:#e3eee7}
+.experience-grid tfoot .eg-count-row .eg-name{font-size:11px;white-space:nowrap}
+.experience-grid tfoot .eg-count.eg-count-on{background:#d9ecdf;font-size:13px}
+.experience-grid tfoot .eg-count.eg-must.eg-count-on{background:#fde3df;color:#a33a2c}
