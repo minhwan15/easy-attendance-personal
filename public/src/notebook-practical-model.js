@@ -3,15 +3,15 @@ import { emptyRecord, normalizeRecord, readiness, toNeisRows } from './notebook-
 import { schoolPeriodsForDate } from './school-timetable.js';
 export const PRACTICAL_MARK = '[예체능 미인정 조퇴]';
 export const isPracticalRecord = record => record.category==='attendance' && String(record.note||'').startsWith(PRACTICAL_MARK);
-export function practicalDates({startDate,endDate,excludedDates=[]}) {
+export function practicalDates({startDate,endDate,excludedDates=[],weekdays=[]}) {
   if(!isDate(startDate)||!isDate(endDate)||startDate>endDate)throw new Error('시작일과 종료일을 확인해 주세요.');
   const from=new Date(`${startDate}T00:00:00Z`),end=new Date(`${endDate}T00:00:00Z`);
   if((end-from)/86400000>365)throw new Error('기간은 1년 이내로 선택해 주세요.');
-  const excluded=new Set(excludedDates);
-  return Array.from({length:Math.round((end-from)/86400000)+1},(_,i)=>new Date(+from+i*86400000).toISOString().slice(0,10)).filter(date=>schoolPeriodsForDate(date).length&&!excluded.has(date));
+  const excluded=new Set(excludedDates),days=new Set((weekdays||[]).map(Number));
+  return Array.from({length:Math.round((end-from)/86400000)+1},(_,i)=>new Date(+from+i*86400000).toISOString().slice(0,10)).filter(date=>schoolPeriodsForDate(date).length&&!excluded.has(date)&&(!days.size||days.has(new Date(`${date}T12:00:00Z`).getUTCDay())));
 }
-export function createPracticalRecords({students,startDate,endDate,lastAttended=0,reason='대입실기준비',excludedDates=[],idFactory}) {
-  const dates=practicalDates({startDate,endDate,excludedDates});
+export function createPracticalRecords({students,startDate,endDate,lastAttended=0,reason='대입실기준비',excludedDates=[],weekdays=[],idFactory}) {
+  const dates=practicalDates({startDate,endDate,excludedDates,weekdays});
   if(!dates.length)throw new Error('입력할 수업일이 없습니다. 기간과 제외일을 확인해 주세요.');
   if(!Array.isArray(students)||!students.length)throw new Error('학생을 선택해 주세요.');
   const last=Number(lastAttended);
