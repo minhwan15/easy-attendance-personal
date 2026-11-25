@@ -18,12 +18,15 @@ const demoItems = today => [
 
 const demoDismissed = new Set();
 const pollers = {};
+let lastSmsCheck = Date.now();
+// 화면이 다시 그려질 때마다 저장소를 읽지 않도록 10분간 결과를 재사용합니다.
+let inboxCache = null;
 /** 아침 출결 메모 위의 ‘받은 문자’. 선택 기능이며, 켜기 전에는 작은 안내만 보입니다. */
 export function mountSmsInbox({ root, demo, students, today, save, notify, onSaved, fillForm, compact = false }) {
   let enabled = demo, items = demo ? demoItems(today).filter(item => !demoDismissed.has(item.id)) : [], url = '', busy = false, loaded = demo;
   const dismiss = async ids => {
     if (demo) { ids.forEach(id => demoDismissed.add(id)); items = items.filter(item => !ids.includes(item.id)); return; }
-    const result = await inboxApi({ action: 'dismiss', ids }); items = result.items; enabled = result.enabled;
+    const result = await inboxApi({ action: 'dismiss', ids }); items = result.items; enabled = result.enabled; inboxCache = { at: Date.now(), result };
   };
   function render() {
     if (compact && !items.length) { root.innerHTML = enabled ? '<p class="sms-quiet">받은 문자 <b>0</b>건 · 학부모 문자 연동 켜짐 <button type="button" class="text-btn" data-sms-refresh>새로 확인</button></p>' : ''; bind(); return; }
@@ -60,18 +63,19 @@ export function mountSmsInbox({ root, demo, students, today, save, notify, onSav
     root.querySelector('[data-sms-enable]')?.addEventListener('click', async () => {
       if (demo) { notify('예시 모드에서는 연동을 켤 수 없습니다.'); return; }
       if (enabled && !confirm('새 연동 주소를 만들까요? 예전 주소로 오는 문자는 더 이상 받지 않습니다.')) return;
-      try { const result = await inboxApi({ action: 'enable' }); enabled = result.enabled; items = result.items; url = result.url; render(); root.querySelector('.sms-setup').open = true; }
+      try { const result = await inboxApi({ action: 'enable' }); inboxCache = { at: Date.now(), result }; enabled = result.enabled; items = result.items; url = result.url; render(); root.querySelector('.sms-setup').open = true; }
       catch (error) { notify(error.message); }
     });
     root.querySelector('[data-sms-disable]')?.addEventListener('click', async () => {
       if (!confirm('문자 자동 연동을 끌까요? 받은 문자도 함께 지워집니다.')) return;
-      try { const result = await inboxApi({ action: 'disable' }); enabled = result.enabled; items = result.items; url = ''; render(); notify('문자 자동 연동을 껐습니다.'); }
+      try { const result = await inboxApi({ action: 'disable' }); inboxCache = { at: Date.now(), result }; enabled = result.enabled; items = result.items; url = ''; render(); notify('문자 자동 연동을 껐습니다.'); }
       catch (error) { notify(error.message); }
     });
   }
   async function load(manual = false) {
     if (demo) { render(); return; }
-    try { const result = await inboxApi(); enabled = result.enabled; items = result.items; loaded = true; render(); if (manual) notify(items.length ? `받은 문자 ${items.length}건` : '새 문자가 없습니다.'); }
+    if (!enabled && loaded && !manual) { render(); return; }
+    try { const fresh = manual || !inboxCache || Date.now() - inboxCache.at > 10 * 60 * 1000; const result = fresh ? await inboxApi() : inboxCache.result; if (fresh) inboxCache = { at: Date.now(), result }; enabled = result.enabled; items = result.items; loaded = true; render(); if (manual) notify(items.length ? `받은 문자 ${items.length}건` : '새 문자가 없습니다.'); }
     catch (error) { if (manual || !loaded) { render(); if (manual) notify(error.message); } }
   }
   render(); load();
@@ -79,8 +83,9 @@ export function mountSmsInbox({ root, demo, students, today, save, notify, onSav
   if (!demo) {
     const slot = compact ? 'compact' : 'full';
     if (pollers[slot]) { clearInterval(pollers[slot].timer); document.removeEventListener('visibilitychange', pollers[slot].onVisible); }
-    const onVisible = () => { if (document.visibilityState === 'visible' && root.isConnected) load(); };
-    const timer = setInterval(() => { if (!root.isConnected) { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); return; } if (document.visibilityState === 'visible') load(); }, 5 * 60 * 1000);
+    // 저장소 읽기 횟수를 아끼기 위해 자동 확인은 화면으로 돌아올 때만, 15분에 한 번까지만 합니다.
+    const onVisible = () => { if (document.visibilityState === 'visible' && root.isConnected && Date.now() - lastSmsCheck > 15 * 60 * 1000) { lastSmsCheck = Date.now(); load(); } };
+    const timer = 0;
     document.addEventListener('visibilitychange', onVisible);
     pollers[slot] = { timer, onVisible };
   }
