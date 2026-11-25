@@ -169,3 +169,6 @@
 .queue-date-tools .daily-print-btn{margin-left:auto;background:#fff;border-color:#2f6b4f;color:#2f6b4f;font-weight:700}
 .weekday-picks{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 8px}.weekday-picks>span{font-size:12px;font-weight:700;color:var(--muted);margin-right:2px}.weekday-picks .chip-choice{min-height:32px;min-width:40px;padding:4px 8px;font-size:13px}.weekday-picks small{flex:1 1 100%;font-size:11px;color:var(--muted)}
 .practical-weekdays{border:0;padding:0;margin:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.practical-weekdays legend{font-size:13px;font-weight:700;margin-bottom:4px;float:left;width:100%}.practical-weekdays .chip-choice{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:36px;cursor:pointer}.practical-weekdays .chip-choice input{position:absolute;opacity:0;pointer-events:none}.practical-weekdays small{flex:1 1 100%;font-size:11px;color:var(--muted)}
+.practical-weekdays .chip-choice:not(.is-on){background:#f4f4f4;color:#9aa39e;border-style:dashed;text-decoration:line-through}
+.practical-weekdays .chip-choice.is-on{background:#2f6b4f;border-color:#2f6b4f;color:#fff}
+.practical-weekday-summary{flex:1 1 100%;margin:4px 0 0;font-size:13px;color:#2f6b4f}
