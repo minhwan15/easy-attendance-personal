@@ -21,14 +21,7 @@ export function experiencePrintHtml({ students = [], records = [], year, baselin
   const title = sample ? `${sample[0]}학년 ${Number(sample.slice(1, 3))}반 교외체험학습 사용 현황` : '교외체험학습 사용 현황';
   const body = rows.map(r => `<tr class="${r.usage.total ? 'has' : ''}"><td class="no">${r.number}</td><td class="name">${esc(r.name)}</td><td class="num">${r.usage.baseline || ''}</td><td class="dates">${esc(dateRanges(r.usage.dates))}</td><td class="num">${r.usage.total || ''}</td><td class="num rem">${r.usage.remaining}</td><td class="sign"></td></tr>`).join('');
   const when = today ? `${Number(today.slice(5, 7))}월 ${Number(today.slice(8))}일 기준` : '';
-  return `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><title>${esc(title)}</title><style>
-@page{size:A4 portrait;margin:11mm 12mm}*{box-sizing:border-box}body{font-family:'Pretendard','Malgun Gothic',sans-serif;margin:0;color:#111}
-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:2mm}h1{font-size:17pt;margin:0}.date{font-size:11pt;font-weight:700}
-.note{font-size:9.5pt;margin:0 0 3mm;line-height:1.5}table{width:100%;border-collapse:collapse;font-size:10.5pt;table-layout:fixed}
-th,td{border:1px solid #444;height:7.3mm;padding:0 2mm}th{background:#eee;font-size:9.5pt;line-height:1.2}
-.no{width:11mm;text-align:center;white-space:nowrap}.name{width:22mm;text-align:center}.num{width:13mm;text-align:center;font-weight:700}.rem{width:15mm}.sign{width:17mm}
-.dates{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}tr.has td{background:#f2f2f2}
-@media print{tr.has td,th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  return `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><title>${esc(title)}</title><link rel="stylesheet" href="/src/notebook-print.css"></head><body class="exp-list">
 <header><h1>${esc(title)}</h1><div class="date">${esc(year)}학년도 · ${esc(when)}</div></header>
 <p class="note">연간 20일 이내 · 체험학습 날짜와 일수를 확인하고, 다르면 담임 선생님께 말해 주세요. 맞으면 확인란에 이름을 쓰세요.</p>
 <table><thead><tr><th class="no">번호</th><th class="name">이름</th><th class="num">기존<br>사용</th><th>체험학습 날짜(신청 기준)</th><th class="num">사용<br>일수</th><th class="num rem">남은<br>일수</th><th class="sign">확인</th></tr></thead><tbody>${body}</tbody></table></body></html>`;

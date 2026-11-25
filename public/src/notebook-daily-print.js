@@ -43,13 +43,7 @@ export function dailyPrintHtml(students, records, date) {
   const half = Math.ceil(rows.length / 2);
   const cell = r => r ? `<td class="no ${r.labels.length ? 'has' : ''}">${r.number}</td><td class="name ${r.labels.length ? 'has' : ''}">${esc(r.name)}</td><td class="state ${r.labels.length ? 'has' : ''}">${esc(r.labels.join(', '))}</td>` : '<td class="no"></td><td class="name"></td><td class="state"></td>';
   const body = Array.from({ length: half }, (_, i) => `<tr>${cell(rows[i])}<td class="gap"></td>${cell(rows[i + half])}</tr>`).join('');
-  return `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><title>${esc(title)} ${esc(when)}</title><style>
-@page{size:A4 portrait;margin:12mm 14mm}*{box-sizing:border-box}body{font-family:'Pretendard','Malgun Gothic',sans-serif;margin:0;color:#111}
-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4mm}h1{font-size:20pt;margin:0}.date{font-size:14pt;font-weight:700}
-.sum{font-size:11pt;margin:0 0 3mm}table{width:100%;border-collapse:collapse;font-size:13pt;table-layout:fixed}th,td{border:1px solid #444;height:13.2mm;padding:0 2mm}
-th{background:#eee;font-size:11pt;height:8mm}.no{width:13mm;text-align:center;white-space:nowrap}.name{width:25mm;text-align:center}.state{font-weight:800;text-align:center;font-size:12pt}
-td.gap,th.gap{width:4mm;border:0;background:none}td.has{background:#ececec}
-@media print{td.has,th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+  return `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><title>${esc(title)} ${esc(when)}</title><link rel="stylesheet" href="/src/notebook-print.css"></head><body class="daily-print">
 <header><h1>${esc(title)}</h1><div class="date">${esc(when)}</div></header><p class="sum">${summary}</p>
 <table><thead><tr><th class="no">번호</th><th class="name">이름</th><th class="state">출결</th><th class="gap"></th><th class="no">번호</th><th class="name">이름</th><th class="state">출결</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
 }

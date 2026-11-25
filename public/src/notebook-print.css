@@ -1,0 +1,39 @@
+/* 출력물(인쇄용 iframe) 스타일. CSP 때문에 인라인 style 대신 이 파일을 씁니다. */
+@page dailyprint{size:A4 portrait;margin:12mm 14mm}
+body.daily-print{page:dailyprint}
+
+body.daily-print *{box-sizing:border-box}
+body.daily-print{font-family:'Pretendard','Malgun Gothic',sans-serif;margin:0;color:#111}
+body.daily-print header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4mm}
+body.daily-print h1{font-size:20pt;margin:0}
+body.daily-print .date{font-size:14pt;font-weight:700}
+body.daily-print .sum{font-size:11pt;margin:0 0 3mm}
+body.daily-print table{width:100%;border-collapse:collapse;font-size:13pt;table-layout:fixed}
+body.daily-print th,body.daily-print td{border:1px solid #444;height:13.2mm;padding:0 2mm}
+body.daily-print th{background:#eee;font-size:11pt;height:8mm}
+body.daily-print .no{width:13mm;text-align:center;white-space:nowrap}
+body.daily-print .name{width:25mm;text-align:center}
+body.daily-print .state{font-weight:800;text-align:center;font-size:12pt}
+body.daily-print td.gap,body.daily-print th.gap{width:4mm;border:0;background:none}
+body.daily-print td.has{background:#ececec}
+@page explist{size:A4 portrait;margin:11mm 12mm}
+body.exp-list{page:explist}
+
+body.exp-list *{box-sizing:border-box}
+body.exp-list{font-family:'Pretendard','Malgun Gothic',sans-serif;margin:0;color:#111}
+body.exp-list header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:2mm}
+body.exp-list h1{font-size:17pt;margin:0}
+body.exp-list .date{font-size:11pt;font-weight:700}
+body.exp-list .note{font-size:9.5pt;margin:0 0 3mm;line-height:1.5}
+body.exp-list table{width:100%;border-collapse:collapse;font-size:10.5pt;table-layout:fixed}
+body.exp-list th,body.exp-list td{border:1px solid #444;height:7.3mm;padding:0 2mm}
+body.exp-list th{background:#eee;font-size:9.5pt;line-height:1.2}
+body.exp-list .no{width:11mm;text-align:center;white-space:nowrap}
+body.exp-list .name{width:22mm;text-align:center}
+body.exp-list .num{width:13mm;text-align:center;font-weight:700}
+body.exp-list .rem{width:15mm}
+body.exp-list .sign{width:17mm}
+body.exp-list .dates{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.exp-list tr.has td{background:#f2f2f2}
+
+html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
