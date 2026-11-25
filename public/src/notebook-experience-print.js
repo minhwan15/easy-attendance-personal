@@ -1,3 +1,4 @@
+import { printHtml } from './notebook-print-frame.js';
 import { usageDays } from './notebook-experience-grid-model.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,8 +29,5 @@ export function experiencePrintHtml({ students = [], records = [], year, baselin
 }
 
 export function printExperienceUsage(options) {
-  const frame = document.createElement('iframe'); frame.title = '체험학습 사용 현황 출력';
-  frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0';
-  frame.onload = () => { frame.contentWindow.addEventListener('afterprint', () => frame.remove(), { once: true }); frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 60000); };
-  frame.srcdoc = experiencePrintHtml(options); document.body.append(frame);
+  printHtml(experiencePrintHtml(options), '체험학습 사용 현황 출력');
 }

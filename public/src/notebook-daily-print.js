@@ -1,3 +1,4 @@
+import { printHtml } from './notebook-print-frame.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SHORT = { 질병: '질병', 출석인정: '인정', 미인정: '미인정', 기타: '기타' };
 
@@ -49,8 +50,5 @@ export function dailyPrintHtml(students, records, date) {
 }
 
 export function printDailyAttendance(students, records, date) {
-  const frame = document.createElement('iframe'); frame.title = '일일 출결 현황 출력';
-  frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0';
-  frame.onload = () => { frame.contentWindow.addEventListener('afterprint', () => frame.remove(), { once: true }); frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 60000); };
-  frame.srcdoc = dailyPrintHtml(students, records, date); document.body.append(frame);
+  printHtml(dailyPrintHtml(students, records, date), '일일 출결 현황 출력');
 }
