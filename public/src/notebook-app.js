@@ -1116,7 +1116,16 @@ function demoRecords() {
 }
 async function boot() {
   if(demo){state.user={username:'demo',displayName:'예시담임'};state.records=demoRecords();render();setTimeout(checkCondolenceFollowups,800);return;}
-  try{accept(await api());render();setTimeout(checkCondolenceFollowups,800);}catch(error){state.error=error.status===401?'':error.message;renderAuth();}
+  // 배포 직후·네트워크가 잠깐 끊길 때 로그인 화면으로 튕기지 않도록 몇 번 다시 시도합니다(로그인은 그대로 유지됨).
+  for(let attempt=0;attempt<4;attempt++){
+    try{accept(await api());render();setTimeout(checkCondolenceFollowups,800);return;}
+    catch(error){
+      if(error.status===401||error.status===403){state.error='';renderAuth();return;}
+      if(attempt<3){await new Promise(resolve=>setTimeout(resolve,1500*(attempt+1)));continue;}
+      app.innerHTML=`${header()}<main class="auth-page"><section class="auth-card"><h2>연결이 잠시 끊겼습니다</h2><p>로그인은 그대로 유지됩니다. 잠시 뒤 다시 시도해 주세요.</p><p class="form-error">${esc(error.message||'서버에 연결하지 못했습니다.')}</p><button class="btn primary" type="button" id="boot-retry">다시 시도</button></section></main>`;
+      document.querySelector('#boot-retry').onclick=()=>boot();
+    }
+  }
 }
 boot();
 
