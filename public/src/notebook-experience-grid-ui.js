@@ -17,6 +17,7 @@ const weekday = date => ['일','월','화','수','목','금','토'][new Date(`${
 /** A mounted grid keeps unsaved drafts until its parent explicitly saves or destroys it. */
 export function createExperienceGrid({root, records = [], students = [], settings = {}, today,
   saveRecord, saveSettings, loadLatest, onSaved = () => {}, onDetails = () => {}, onNeis = () => {}, onRoster = () => {}, notify = () => {}}) {
+  let weekAuto = true;
   let savedRecords = copy(records), savedSettings = normalizeExperienceSettings(settings), draftSettings = copy(savedSettings);
   const roster = [...students].sort((a,b) => a.studentId.localeCompare(b.studentId));
   const drafts = new Map(), approvalDrafts = new Map(), newIds = new Map();
@@ -105,6 +106,8 @@ export function createExperienceGrid({root, records = [], students = [], setting
   function groupItems(items){const m=new Map();for(const it of items){const k=it.record.id+'|'+it.reason;if(!m.has(k))m.set(k,{record:it.record,reason:it.reason,dates:[]});m.get(k).dates.push(...it.dates);}return [...m.values()];}
   function renderWeekPanel(){
     const cards=q('[data-grid-weeks]'),detail=q('[data-grid-week-detail]'),send=q('[data-grid-neis]');if(!cards)return;
+    // 사용자가 주를 고르기 전에는 보낼 날이 있는 가장 가까운 주를 먼저 보여 줍니다.
+    if(weekAuto){const pick=[0,1,2,3,-1].map(o=>shiftWeek(today,o)).find(d=>weekStats(d).days);if(pick)weekDate=pick;}
     const sel=schoolWeek(weekDate).start,md=d=>`${Number(d.slice(5,7))}/${Number(d.slice(8))}`;
     const names=['지난주','이번 주','다음 주','다다음 주','3주 뒤'];
     const offsets=[-1,0,1,2,3],list=offsets.map(o=>({o,date:shiftWeek(today,o)}));
@@ -293,7 +296,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
     const cell=event.target.closest('[data-grid-cell]');
     if(cell&&activeMark!==null&&!cell.disabled&&!dragged){try{applyValues([...selected].map(key=>({...splitKey(key),mark:activeMark})));}catch(error){setError(error.message);}return;}
     const button=event.target.closest('button');if(!button)return;
-    if(button.hasAttribute('data-grid-week-pick')){weekDate=button.dataset.gridWeekPick;renderWeekPanel();}
+    if(button.hasAttribute('data-grid-week-pick')){weekAuto=false;weekDate=button.dataset.gridWeekPick;renderWeekPanel();}
     else if(button.hasAttribute('data-grid-open-record')){const record=savedRecords.find(r=>r.id===button.dataset.gridOpenRecord);if(record)onDetails(copy(record));}
     else if(button.hasAttribute('data-grid-prev'))changeMonth(shiftMonth(month,-1));
     else if(button.hasAttribute('data-grid-next'))changeMonth(shiftMonth(month,1));
@@ -314,7 +317,7 @@ export function createExperienceGrid({root, records = [], students = [], setting
       try{await onNeis({records:copy(savedRecords.filter(r=>r.category==='experience')),weekDate});}catch(error){setError(error.message);}
     }
   },{signal});
-  root.addEventListener('change',event=>{if(event.target.matches('[data-grid-week-date]')){try{schoolWeek(event.target.value);weekDate=event.target.value;refreshSummary();}catch(error){setError(error.message);}return;}if(event.target.matches('[data-grid-month]'))changeMonth(event.target.value);},{signal});
+  root.addEventListener('change',event=>{if(event.target.matches('[data-grid-week-date]')){try{schoolWeek(event.target.value);weekAuto=false;weekDate=event.target.value;refreshSummary();}catch(error){setError(error.message);}return;}if(event.target.matches('[data-grid-month]'))changeMonth(event.target.value);},{signal});
   root.addEventListener('input',event=>{
     const input=event.target;if(busy)return;
     if(input.hasAttribute('data-grid-search')){search=input.value;selected.clear();anchor=null;renderTable();}

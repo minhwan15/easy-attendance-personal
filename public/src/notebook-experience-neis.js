@@ -49,7 +49,7 @@ export function openExperienceNeis(options) {
     <div class="experience-neis-body"><div class="experience-neis-table"><table><thead><tr><th>날짜</th><th>학생</th><th>출결</th><th>입력 내용</th></tr></thead><tbody>${prepared.rows.map(row => `<tr><td>${esc(row.date)}</td><td>${esc(row.studentId)} ${esc(row.studentName)}</td><td>${esc(row.reasonType)} ${esc(row.attendanceType)}</td><td>${esc(row.reason)}</td></tr>`).join('')}</tbody></table></div>
     <p class="helper-note">‘선택한 기록 보내기’를 누르면 설치한 나이스 도우미로 전달됩니다. 나이스 일일출결관리를 열어 두고 도우미에서 자동 입력하세요. 저장 확인한 날짜는 다음 전송에서 제외됩니다.</p><p class="form-error" data-neis-error role="alert"></p><p data-neis-status role="status"></p>
     ${neisGuideHtml({experience:true})}</div>
-    <footer class="dialog-footer neis-dialog-actions"><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 복사 또는 파일 저장</summary><div class="neis-alternative-actions"><div><button class="btn" type="button" data-neis-copy>붙여넣을 내용 복사</button><p>나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn" type="button" data-neis-csv>엑셀로 확인할 파일 저장</button><p>내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn" type="button" data-neis-json>도우미에서 불러올 파일 저장</button><p>도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><button class="btn primary" type="button" data-neis-send>선택한 기록 보내기</button></footer>`;
+    <footer class="dialog-footer neis-dialog-actions"><details class="neis-other-methods" data-neis-other><summary>다른 방법 · 복사 또는 파일 저장</summary><div class="neis-alternative-actions"><div><button class="btn" type="button" data-neis-copy>붙여넣을 내용 복사</button><p>나이스 입력칸에 직접 붙여 넣을 때</p></div><div><button class="btn" type="button" data-neis-csv>엑셀로 확인할 파일 저장</button><p>내용을 표로 확인하는 CSV 파일</p></div><div><button class="btn" type="button" data-neis-json>도우미에서 불러올 파일 저장</button><p>도우미의 ‘나이스 입력용 JSON 열기’에서 불러옵니다.</p></div></div></details><button class="btn primary" type="button" data-neis-send data-neis-url="${esc(options.neisUrl||'')}">선택한 기록 보내기</button></footer>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.querySelector('[data-neis-close]').onclick = () => dialog.close();
@@ -69,7 +69,7 @@ export function openExperienceNeis(options) {
     const button = event.currentTarget; button.disabled = true; button.textContent = '전달 중…'; error.textContent = ''; status.textContent = '';
     try {
       const result = await sendToNeisHelper(prepared.payload);
-      if (result.sent) status.textContent = `${prepared.rows.length}건을 도우미에 전달했습니다. PC의 나이스 탭에서 도우미를 열어 주세요.`;
+      if (result.sent) { status.textContent = `${prepared.rows.length}건을 도우미에 전달했습니다. 나이스 탭과 도우미 창에서 이어서 입력하세요.`; options.onSent?.(result); }
       else { status.textContent = '도우미와 연결되지 않았습니다. PC Chrome에서 도우미를 켜고 기록함을 새로고침하세요. 파일로 옮기려면 다른 방법을 펼치세요.'; dialog.querySelector('[data-neis-other]').open = true; }
     } catch (problem) { error.textContent = problem.message; }
     finally { button.disabled = false; button.textContent = '선택한 기록 보내기'; }

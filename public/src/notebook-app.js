@@ -382,6 +382,8 @@ function appWindowNotice(){
   return '<p class="app-window-notice">⚠ 지금 앱 창(바로가기)으로 열려 있어 도우미가 뜨지 않습니다. 창 오른쪽 위 <b>⋮ → ‘Chrome에서 열기’</b>를 눌러 크롬 탭에서 보내 주세요.</p>';
 }
 function neisLinkAttr(){const region=neisRegionOf(state.experienceSettings);return openNeisToo()&&region?neisUrl(region):'';}
+/** 체험학습 보내기도 일일출결처럼 도우미 + 우리 지역 나이스를 함께 엽니다. */
+function experienceNeisLink(){const region=neisRegionOf(state.experienceSettings);return {neisUrl:neisLinkAttr(),onSent:result=>{if(!result.neisOpened)openNeisNow(region);}};}
 function openNeisToo(){try{return localStorage.getItem('openNeisToo')!=='0';}catch{return true;}}
 function openNeisNow(region){
   if(!openNeisToo()||!region)return;
@@ -474,7 +476,7 @@ function bindWorkspace() {
     saveSettings:async(settings,beforeSettings)=>{if(demo)state.experienceSettings=normalizeExperienceSettings(settings);else accept(await api({action:'save-experience-settings',settings,beforeSettings},'POST'));return notebookSnapshot();},
     loadLatest:async()=>{if(!demo)accept(await api());return notebookSnapshot();},
     onSaved:()=>{state.error='';refreshTabCounts();},onDetails:record=>afterGridSave(()=>openEditor(state.records.find(item=>item.id===record.id)||record)),
-    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());if(selection.weekDate){openExperienceWeek({date:selection.weekDate,today:today(),loadLatest:async()=>{await syncNeisCompletions();if(!demo)accept(await api());return notebookSnapshot();},saveRecord:persistRecord,onDetails:openEditor,onSend:chosen=>openExperienceNeis({...chosen,blockedDates:state.experienceSettings.blockedDates})});}else openExperienceNeis({...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
+    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());if(selection.weekDate){openExperienceWeek({date:selection.weekDate,today:today(),loadLatest:async()=>{await syncNeisCompletions();if(!demo)accept(await api());return notebookSnapshot();},saveRecord:persistRecord,onDetails:openEditor,onSend:chosen=>openExperienceNeis({...experienceNeisLink(),...chosen,blockedDates:state.experienceSettings.blockedDates})});}else openExperienceNeis({...experienceNeisLink(),...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
     onRoster:()=>afterGridSave(openRoster),notify:toast});
   document.querySelectorAll('[data-experience-view]').forEach(button=>button.onclick=()=>afterGridSave(()=>{state.experienceView=button.dataset.experienceView;render();}));
   document.querySelectorAll('#workspace-content [data-new]').forEach(b=>b.onclick=()=>afterGridSave(()=>startNew(b.dataset.new)));
