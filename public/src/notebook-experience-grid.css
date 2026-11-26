@@ -42,3 +42,6 @@
 .experience-grid tfoot .eg-count-row .eg-name{font-size:11px;white-space:nowrap}
 .experience-grid tfoot .eg-count.eg-count-on{background:#d9ecdf;font-size:13px}
 .experience-grid tfoot .eg-count.eg-must.eg-count-on{background:#fde3df;color:#a33a2c}
+
+.experience-grid .eg-cell.eg-unchecked{outline:2px dashed #c0392b;outline-offset:-3px}
+.experience-grid .eg-legend.eg-unchecked-legend{border:2px dashed #c0392b;background:#fff;width:18px;height:18px}

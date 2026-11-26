@@ -69,10 +69,18 @@ body{background:var(--paper);color:var(--ink)}.site-header{background:#fcfdf9}.b
 .mobile-pc-note{display:block;font-size:13px;color:#61736a;margin:12px 0}
 }
 
-.eg-week-transfer{margin:18px 0;padding:16px;border:1px solid #dce5df;border-radius:14px;background:#f4f8f3}
-.eg-week-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
-.eg-week-tools strong{flex-basis:100%}.eg-week-tools label{display:flex;align-items:center;gap:8px}
-.eg-week-tools [data-grid-week-label]{flex-basis:100%;font-size:14px}
+.eg-week-transfer{margin:18px 20px;padding:16px 18px;border:1px solid #dce5df;border-radius:14px;background:#f6f9f5}
+.eg-week-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}.eg-week-head strong{font-size:16px}.eg-week-head small{color:#6c7a70;font-size:12px}
+.eg-week-other{margin-left:auto;white-space:nowrap;font-size:12px;color:#6c7a70;display:flex;align-items:center;gap:6px}.eg-week-other input{padding:4px 6px;border:1px solid #d5ded7;border-radius:7px;font-size:12px}
+.eg-week-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.eg-week-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border:1.5px solid #d7e1d9;border-radius:11px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.eg-week-card b{font-size:13px}.eg-week-card span{font-size:12px;color:#66756b}.eg-week-card em{font-style:normal;font-size:14px;font-weight:700;color:#2a6a4a;margin-top:3px}.eg-week-card i{font-style:normal;font-size:12px;font-weight:700;color:#b23a2e}.eg-week-card small{font-size:11px;color:#8a978e}
+.eg-week-card.has-issue{border-color:#e8b3ab}.eg-week-card.is-on{border-color:#2f6b4f;background:#e9f3ec;box-shadow:0 0 0 2px #2f6b4f33}
+.eg-week-detail{margin:12px 0}.eg-week-title{margin:0 0 8px;font-size:14px}
+.eg-week-ready{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.eg-week-ready span{padding:4px 9px;border-radius:999px;background:#e3f0e6;font-size:12px;font-weight:650}.eg-week-ready small{font-weight:400;color:#557060}
+.eg-week-issues{padding:10px 12px;border:1px solid #efc4bd;border-radius:10px;background:#fff5f3}.eg-week-issues p{margin:0 0 8px;font-size:13px;font-weight:700;color:#a23a2e}
+.eg-issue{display:flex;align-items:center;gap:8px;width:100%;padding:7px 4px;border:0;border-top:1px dashed #f0cfc9;background:none;font:inherit;font-size:13px;text-align:left;cursor:pointer}.eg-issue span{color:#a23a2e;font-size:12px}.eg-issue u{margin-left:auto;color:#2f6b4f;font-weight:700}
+.eg-week-send{width:100%;min-height:46px;font-size:15px}
 .eg-approval-help{font-size:13px;line-height:1.6;margin:8px 0 14px;color:#61736a}
 @media(max-width:700px){.eg-action-tools{flex-wrap:wrap;gap:8px}.eg-action-tools button{white-space:normal;min-height:44px}.eg-approval-help{padding:0 12px}}
 /* 학부모 문자 받은함 */
