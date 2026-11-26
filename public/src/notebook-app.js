@@ -27,7 +27,8 @@ import { academicYear } from './notebook-experience-usage.js';
 import { createExperienceGrid } from './notebook-experience-grid-ui.js';
 import { usageDays } from './notebook-experience-grid-model.js';
 import { normalizeExperienceSettings } from './notebook-experience-settings.js';
-import { openExperienceNeis } from './notebook-experience-neis.js';
+import { openExperienceNeis, prepareExperienceNeis } from './notebook-experience-neis.js';
+import { weeklyExperience } from './notebook-experience-week.js';
 import { applyNeisCompletion } from './notebook-neis-completion.js';
 import { sendToNeisHelper, completedNeisRows, acknowledgeNeisRows, LATEST_HELPER_VERSION } from './notebook-neis-bridge.js';
 import { neisGuideHtml, chromeNeisNoticeHtml } from './notebook-neis-guide.js';
@@ -384,6 +385,20 @@ function appWindowNotice(){
 function neisLinkAttr(){const region=neisRegionOf(state.experienceSettings);return openNeisToo()&&region?neisUrl(region):'';}
 /** 체험학습 보내기도 일일출결처럼 도우미 + 우리 지역 나이스를 함께 엽니다. */
 function experienceNeisLink(){const region=neisRegionOf(state.experienceSettings);return {neisUrl:neisLinkAttr(),onSent:result=>{if(!result.neisOpened)openNeisNow(region);}};}
+/** 체험학습 한 주를 한 번에: 보낼 날짜를 모아 바로 도우미로 보내고, 도우미 창과 우리 지역 나이스를 엽니다. */
+async function sendExperienceWeek(weekDate){
+  const region=neisRegionOf(state.experienceSettings),blockedDates=state.experienceSettings.blockedDates;
+  const week=weeklyExperience(state.records,weekDate,blockedDates);
+  if(!week.days){toast('이 주에 나이스로 보낼 날짜가 없습니다.');return;}
+  const datesByRecord={};week.ready.forEach(item=>{(datesByRecord[item.record.id]||=[]).push(...item.dates);});
+  const records=state.records.filter(r=>datesByRecord[r.id]);
+  const prepared=prepareExperienceNeis({records,datesByRecord,blockedDates});
+  if(demo){toast(`데모: ${prepared.rows.length}일을 보낼 준비가 됐습니다.`);return;}
+  const result=await sendToNeisHelper(prepared.payload);
+  if(result.outdated)setTimeout(()=>alert(`설치된 나이스 도우미가 예전 버전(${result.outdated})입니다.\n홈 → 나이스 도우미 설치 안내에서 새 도우미(${LATEST_HELPER_VERSION})를 받아 다시 설치해 주세요.`),300);
+  if(result.sent){if(!result.neisOpened)openNeisNow(region);toast(`체험학습 ${week.students}명 ${prepared.rows.length}일을 도우미로 보냈습니다. 나이스 탭의 도우미 창에서 입력을 시작하세요.`);}
+  else{toast('도우미와 연결되지 않았습니다. PC Chrome에서 도우미를 켜고 새로고침하세요.');openExperienceNeis({...experienceNeisLink(),records,datesByRecord,blockedDates});}
+}
 function openNeisToo(){try{return localStorage.getItem('openNeisToo')!=='0';}catch{return true;}}
 function openNeisNow(region){
   if(!openNeisToo()||!region)return;
@@ -476,8 +491,8 @@ function bindWorkspace() {
     saveSettings:async(settings,beforeSettings)=>{if(demo)state.experienceSettings=normalizeExperienceSettings(settings);else accept(await api({action:'save-experience-settings',settings,beforeSettings},'POST'));return notebookSnapshot();},
     loadLatest:async()=>{if(!demo)accept(await api());return notebookSnapshot();},
     onSaved:()=>{state.error='';refreshTabCounts();},onDetails:record=>afterGridSave(()=>openEditor(state.records.find(item=>item.id===record.id)||record)),
-    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());if(selection.weekDate){openExperienceWeek({date:selection.weekDate,today:today(),loadLatest:async()=>{await syncNeisCompletions();if(!demo)accept(await api());return notebookSnapshot();},saveRecord:persistRecord,onDetails:openEditor,onSend:chosen=>openExperienceNeis({...experienceNeisLink(),...chosen,blockedDates:state.experienceSettings.blockedDates})});}else openExperienceNeis({...experienceNeisLink(),...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
-    onRoster:()=>afterGridSave(openRoster),notify:toast});
+    onNeis:async selection=>{try{await syncNeisCompletions();if(!demo)accept(await api());if(selection.weekDate){await sendExperienceWeek(selection.weekDate);}else if(selection.reviewWeek){openExperienceWeek({date:selection.reviewWeek,today:today(),loadLatest:async()=>{await syncNeisCompletions();if(!demo)accept(await api());return notebookSnapshot();},saveRecord:persistRecord,onDetails:openEditor,onSend:chosen=>openExperienceNeis({...experienceNeisLink(),...chosen,blockedDates:state.experienceSettings.blockedDates})});}else openExperienceNeis({...experienceNeisLink(),...selection,records:selection.allPending?state.records.filter(r=>r.category==='experience'):selection.records,blockedDates:state.experienceSettings.blockedDates});}catch(error){toast(error.message);}},
+    onRoster:()=>afterGridSave(openRoster),notify:toast,neisLink:()=>neisLinkAttr()});
   document.querySelectorAll('[data-experience-view]').forEach(button=>button.onclick=()=>afterGridSave(()=>{state.experienceView=button.dataset.experienceView;render();}));
   document.querySelectorAll('#workspace-content [data-new]').forEach(b=>b.onclick=()=>afterGridSave(()=>startNew(b.dataset.new)));
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const record=state.records.find(r=>r.id===b.dataset.open);record?.passKind?openPass(record):openEditor(record);});
